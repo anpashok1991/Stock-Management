@@ -92,6 +92,45 @@ Open `http://localhost:5000`
 - Product detail page with pricing
 - MudBlazor-powered responsive UI
 
+### Manufacturing / Production Management
+- **Bill of Materials (BOM)** - Create, edit, copy, activate, deactivate, and delete BOMs
+  - BOM versioning support for future revisions
+  - Raw material specifications with quantity, unit, wastage %, optional flag
+  - BOM status management (Draft / Active / Inactive)
+- **Manufacturing Orders** - Full production lifecycle management
+  - Auto-generated manufacturing numbers (MFG-YYYY-XXXXXX)
+  - Production status tracking (Draft → Planned → In Progress → Completed / Cancelled)
+  - BOM auto-loading with material requirement calculation
+  - Production quantity input with automatic material scaling
+- **Stock Validation** - Pre-production inventory validation
+  - Automatic stock availability check before manufacturing
+  - Insufficient stock indicators with missing material list
+  - Manufacturing blocked until sufficient stock available
+- **Raw Material Consumption** - Automatic inventory deduction
+  - Real-time stock deduction on manufacturing completion
+  - Stock movement tracking for all consumed materials
+  - Wastage percentage calculation for accurate consumption
+- **Finished Product Stock** - Automatic stock increment
+  - Finished product stock increased after successful manufacturing
+  - Product StockQuantity updated automatically
+- **Inventory Transactions** - Complete audit trail
+  - Transaction types: ConsumedInManufacturing, Manufactured
+  - Before/After quantity tracking for every stock movement
+  - Manufacturing number linkage for traceability
+- **Cost Calculation** - Automatic production cost computation
+  - Total Raw Material Cost
+  - Additional Manufacturing Cost (optional)
+  - Labour Cost (optional)
+  - Packaging Cost (optional)
+  - = Finished Product Cost
+- **Manufacturing History** - Complete production history with filtering
+  - Search by manufacturing number, status, date range
+  - View detailed material consumption breakdown
+  - Material usage summary with cost breakdown
+- **Multi-Shop Support** - Tenant-scoped manufacturing
+  - Stock affected only within the manufacturing shop
+  - Complete data isolation between tenants
+
 ### Tech Stack
 - .NET 8 + ASP.NET Core
 - Blazor Server (Interactive)

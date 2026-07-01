@@ -1,0 +1,389 @@
+@page "/bom"
+@rendermode InteractiveServer
+@using MediatR
+@using StockManagement.Application.Features.Manufacturing.Queries
+@using StockManagement.Application.Features.Manufacturing.Commands
+@using StockManagement.Application.Features.Products.Queries
+@using StockManagement.Domain.Enums
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<PageTitle>Bill of Materials - Stock Management ERP</PageTitle>
+
+<MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Bill of Materials</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="ShowNewBOMDialog">New BOM</MudButton>
+</MudStack>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" sm="3">
+        <MudSelect T="BOMStatus?" Value="_statusFilter" ValueChanged="@(v => { _statusFilter = v; LoadBOMs(); })"
+                   Label="Filter by Status" Clearable="true">
+            @foreach (var s in Enum.GetValues<BOMStatus>())
+            {
+                <MudSelectItem Value="@((BOMStatus?)s)">@s</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12" sm="3">
+        <MudTextField @bind-Value="_search" Placeholder="Search BOM..."
+                      DebounceInterval="300" OnDebounceIntervalElapsed="LoadBOMs" />
+    </MudItem>
+</MudGrid>
+
+<MudTable Items="_boms" Dense="true" Hover="true" Loading="_loading" RowsPerPage="15">
+    <HeaderContent>
+        <MudTh>BOM Name</MudTh>
+        <MudTh>Finished Product</MudTh>
+        <MudTh>Version</MudTh>
+        <MudTh>Items</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Created</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="BOM Name">@context.Name</MudTd>
+        <MudTd DataLabel="Finished Product">@context.FinishedProductName</MudTd>
+        <MudTd DataLabel="Version">@context.VersionNumber</MudTd>
+        <MudTd DataLabel="Items">@context.ItemCount</MudTd>
+        <MudTd DataLabel="Status">
+            <MudChip Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+        </MudTd>
+        <MudTd DataLabel="Created">@context.CreatedAt.ToString("dd MMM yyyy")</MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Default"
+                           OnClick="() => ViewBOM(context.Id)" Title="View" />
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                           OnClick="() => EditBOM(context.Id)" Title="Edit" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                           OnClick="() => DeleteBOM(context.Id)" Title="Delete" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<MudDialog @bind-IsVisible="_showNewDialog" MaxWidth="MaxWidth.Large">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(editingBOM != null ? "Edit BOM" : "New Bill of Materials")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_bomForm.Name" Label="BOM Name" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect @bind-Value="_bomForm.FinishedProductId" Label="Finished Product" Required="true"
+                           ToStringFunc="@(id => _products.FirstOrDefault(p => p.Id == id)?.Name ?? string.Empty)">
+                    @foreach (var p in _products)
+                    {
+                        <MudSelectItem Value="@p.Id">@p.Name (@p.Sku)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_bomForm.VersionNumber" Label="Version" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect @bind-Value="_bomForm.Status" Label="Status">
+                    @foreach (var s in Enum.GetValues<BOMStatus>())
+                    {
+                        <MudSelectItem Value="@s">@s</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_bomForm.Description" Label="Description" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_bomForm.Notes" Label="Notes" Lines="2" />
+            </MudItem>
+        </MudGrid>
+
+        <MudDivider Class="my-3" />
+        <MudText Typo="Typo.h6" Class="mb-2">Raw Materials</MudText>
+
+        @if (_bomForm.Items.Any())
+        {
+            <MudTable Items="_bomForm.Items.Select((item, index) => new { item, index })" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Raw Material</MudTh>
+                    <MudTh>Quantity</MudTh>
+                    <MudTh>Unit</MudTh>
+                    <MudTh>Wastage %</MudTh>
+                    <MudTh>Optional</MudTh>
+                    <MudTh>Remarks</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>
+                        <MudSelect @bind-Value="context.item.RawMaterialId" Dense="true"
+                                   ToStringFunc="@(id => _rawMaterials.FirstOrDefault(r => r.Id == id)?.Name ?? string.Empty)">
+                            @foreach (var r in _rawMaterials)
+                            {
+                                <MudSelectItem Value="@r.Id">@r.Name (@r.Sku)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudTd>
+                    <MudTd>
+                        <MudNumericField @bind-Value="context.item.QuantityRequired" Min="0.01m" Dense="true" />
+                    </MudTd>
+                    <MudTd>
+                        <MudTextField @bind-Value="context.item.Unit" Dense="true" />
+                    </MudTd>
+                    <MudTd>
+                        <MudNumericField @bind-Value="context.item.WastagePercentage" Min="0" Max="100" Dense="true" />
+                    </MudTd>
+                    <MudTd>
+                        <MudCheckBox @bind-Checked="context.item.IsOptional" />
+                    </MudTd>
+                    <MudTd>
+                        <MudTextField @bind-Value="context.item.Remarks" Dense="true" />
+                    </MudTd>
+                    <MudTd>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                       OnClick="() => RemoveBOMItem(context.index)" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="AddBOMItem" Class="mt-2">Add Raw Material</MudButton>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showNewDialog = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveBOM"
+                   Disabled="@(!_bomForm.Items.Any())">Save BOM</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<MudDialog @bind-IsVisible="_showViewDialog" MaxWidth="MaxWidth.Large">
+    <TitleContent>
+        <MudText Typo="Typo.h6">BOM: @(_viewBOM?.Name)</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_viewBOM != null)
+        {
+            <MudGrid Class="mb-3">
+                <MudItem xs="12" sm="6">
+                    <MudText><strong>Finished Product:</strong> @_viewBOM.FinishedProductName</MudText>
+                    <MudText><strong>Version:</strong> @_viewBOM.VersionNumber</MudText>
+                    <MudText><strong>Status:</strong> @_viewBOM.Status</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudText><strong>Description:</strong> @(_viewBOM.Description ?? "-")</MudText>
+                    <MudText><strong>Notes:</strong> @(_viewBOM.Notes ?? "-")</MudText>
+                    <MudText><strong>Created:</strong> @_viewBOM.CreatedAt.ToString("dd MMM yyyy")</MudText>
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.h6" Class="mb-2">Raw Materials</MudText>
+            <MudTable Items="_viewBOM.Items" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Raw Material</MudTh>
+                    <MudTh>SKU</MudTh>
+                    <MudTh>Quantity</MudTh>
+                    <MudTh>Unit</MudTh>
+                    <MudTh>Wastage %</MudTh>
+                    <MudTh>Optional</MudTh>
+                    <MudTh>Available</MudTh>
+                    <MudTh>Remarks</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Raw Material">@context.RawMaterialName</MudTd>
+                    <MudTd DataLabel="SKU">@context.RawMaterialSku</MudTd>
+                    <MudTd DataLabel="Quantity">@context.QuantityRequired.ToString("N2")</MudTd>
+                    <MudTd DataLabel="Unit">@context.Unit</MudTd>
+                    <MudTd DataLabel="Wastage %">@context.WastagePercentage.ToString("N2")</MudTd>
+                    <MudTd>
+                        @if (context.IsOptional)
+                        {
+                            <MudChip Color="Color.Info" Size="Size.Small">Optional</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Available">
+                        <MudText Color="@(context.AvailableStock < context.QuantityRequired ? Color.Error : Color.Success)">
+                            @context.AvailableStock
+                        </MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Remarks">@context.Remarks</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showViewDialog = false">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<BOMDto> _boms = new();
+    private List<ManufacturableProductDto> _products = new();
+    private List<ManufacturableProductDto> _rawMaterials = new();
+    private bool _loading = true;
+    private string? _search;
+    private BOMStatus? _statusFilter;
+    private bool _showNewDialog;
+    private bool _showViewDialog;
+    private BOMDetailDto? _viewBOM;
+    private BOMDetailDto? editingBOM;
+
+    private CreateBOMCommand _bomForm = new();
+
+    protected override async Task OnInitializedAsync() => await LoadBOMs();
+
+    private async Task LoadBOMs()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new GetBOMsQuery { SearchTerm = _search, Status = _statusFilter, PageSize = 100 });
+        if (result.Succeeded && result.Data != null)
+            _boms = result.Data.Items;
+        _loading = false;
+    }
+
+    private async Task ShowNewBOMDialog()
+    {
+        editingBOM = null;
+        _bomForm = new CreateBOMCommand
+        {
+            VersionNumber = "1.0",
+            Status = BOMStatus.Draft,
+            Items = new List<BOMItemRequest>()
+        };
+
+        var productsResult = await Mediator.Send(new GetManufacturableProductsQuery());
+        if (productsResult.Succeeded && productsResult.Data != null)
+        {
+            _products = productsResult.Data;
+            _rawMaterials = productsResult.Data;
+        }
+
+        _showNewDialog = true;
+    }
+
+    private void AddBOMItem()
+    {
+        _bomForm.Items.Add(new BOMItemRequest { Unit = "Piece", QuantityRequired = 1 });
+    }
+
+    private void RemoveBOMItem(int index)
+    {
+        if (index >= 0 && index < _bomForm.Items.Count)
+            _bomForm.Items.RemoveAt(index);
+    }
+
+    private async Task SaveBOM()
+    {
+        if (editingBOM != null)
+        {
+            var updateCommand = new UpdateBOMCommand
+            {
+                Id = editingBOM.Id,
+                Name = _bomForm.Name,
+                FinishedProductId = _bomForm.FinishedProductId,
+                VersionNumber = _bomForm.VersionNumber,
+                Status = _bomForm.Status,
+                Description = _bomForm.Description,
+                Notes = _bomForm.Notes,
+                Items = _bomForm.Items
+            };
+            var result = await Mediator.Send(updateCommand);
+            if (result.Succeeded)
+            {
+                Snackbar.Add("BOM updated successfully!", Severity.Success);
+                _showNewDialog = false;
+                await LoadBOMs();
+            }
+            else
+            {
+                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            }
+        }
+        else
+        {
+            var result = await Mediator.Send(_bomForm);
+            if (result.Succeeded)
+            {
+                Snackbar.Add("BOM created successfully!", Severity.Success);
+                _showNewDialog = false;
+                await LoadBOMs();
+            }
+            else
+            {
+                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            }
+        }
+    }
+
+    private async Task ViewBOM(Guid bomId)
+    {
+        var result = await Mediator.Send(new GetBOMByIdQuery { Id = bomId });
+        if (result.Succeeded && result.Data != null)
+        {
+            _viewBOM = result.Data;
+            _showViewDialog = true;
+        }
+    }
+
+    private async Task EditBOM(Guid bomId)
+    {
+        var result = await Mediator.Send(new GetBOMByIdQuery { Id = bomId });
+        if (result.Succeeded && result.Data != null)
+        {
+            editingBOM = result.Data;
+            _bomForm = new CreateBOMCommand
+            {
+                Name = result.Data.Name,
+                FinishedProductId = result.Data.FinishedProductId,
+                VersionNumber = result.Data.VersionNumber,
+                Status = Enum.Parse<BOMStatus>(result.Data.Status),
+                Description = result.Data.Description,
+                Notes = result.Data.Notes,
+                Items = result.Data.Items.Select(i => new BOMItemRequest
+                {
+                    RawMaterialId = i.RawMaterialId,
+                    QuantityRequired = i.QuantityRequired,
+                    Unit = i.Unit,
+                    WastagePercentage = i.WastagePercentage,
+                    IsOptional = i.IsOptional,
+                    Remarks = i.Remarks
+                }).ToList()
+            };
+
+            var productsResult = await Mediator.Send(new GetManufacturableProductsQuery());
+            if (productsResult.Succeeded && productsResult.Data != null)
+            {
+                _products = productsResult.Data;
+                _rawMaterials = productsResult.Data;
+            }
+
+            _showNewDialog = true;
+        }
+    }
+
+    private async Task DeleteBOM(Guid bomId)
+    {
+        var result = await Mediator.Send(new DeleteBOMCommand { BOMId = bomId });
+        if (result.Succeeded)
+        {
+            Snackbar.Add("BOM deleted", Severity.Success);
+            await LoadBOMs();
+        }
+        else
+        {
+            Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+    }
+
+    private Color GetStatusColor(BOMStatus status) => status switch
+    {
+        BOMStatus.Active => Color.Success,
+        BOMStatus.Draft => Color.Default,
+        BOMStatus.Inactive => Color.Error,
+        _ => Color.Default
+    };
+}

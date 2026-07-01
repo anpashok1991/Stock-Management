@@ -1,0 +1,363 @@
+@page "/manufacturing"
+@rendermode InteractiveServer
+@using MediatR
+@using StockManagement.Application.Features.Manufacturing.Queries
+@using StockManagement.Application.Features.Manufacturing.Commands
+@using StockManagement.Application.Features.Products.Queries
+@using StockManagement.Domain.Enums
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<PageTitle>Manufacturing - Stock Management ERP</PageTitle>
+
+<MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Manufacturing</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="ShowNewManufacturingDialog">New Manufacturing Order</MudButton>
+</MudStack>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" sm="3">
+        <MudSelect T="ManufacturingStatus?" Value="_statusFilter" ValueChanged="@(v => { _statusFilter = v; LoadOrders(); })"
+                   Label="Filter by Status" Clearable="true">
+            @foreach (var s in Enum.GetValues<ManufacturingStatus>())
+            {
+                <MudSelectItem Value="@((ManufacturingStatus?)s)">@s</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12" sm="3">
+        <MudTextField @bind-Value="_search" Placeholder="Search by MFG number..."
+                      DebounceInterval="300" OnDebounceIntervalElapsed="LoadOrders" />
+    </MudItem>
+</MudGrid>
+
+<MudTable Items="_orders" Dense="true" Hover="true" Loading="_loading" RowsPerPage="15">
+    <HeaderContent>
+        <MudTh>MFG #</MudTh>
+        <MudTh>Finished Product</MudTh>
+        <MudTh>Quantity</MudTh>
+        <MudTh>Material Cost</MudTh>
+        <MudTh>Total Cost</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Date</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="MFG #">@context.ManufacturingNumber</MudTd>
+        <MudTd DataLabel="Finished Product">@context.FinishedProductName</MudTd>
+        <MudTd DataLabel="Quantity">@context.Quantity</MudTd>
+        <MudTd DataLabel="Material Cost">₹ @context.TotalMaterialCost.ToString("N2")</MudTd>
+        <MudTd DataLabel="Total Cost">₹ @context.EstimatedProductCost.ToString("N2")</MudTd>
+        <MudTd DataLabel="Status">
+            <MudChip Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+        </MudTd>
+        <MudTd DataLabel="Date">@context.ProductionDate.ToString("dd MMM yyyy")</MudTd>
+        <MudTd>
+            @if (context.Status == ManufacturingStatus.Draft)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" Color="Color.Info"
+                               OnClick="() => UpdateStatus(context.Id, ManufacturingStatus.Planned)" Title="Plan" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="() => DeleteOrder(context.Id)" Title="Delete" />
+            }
+            @if (context.Status == ManufacturingStatus.Planned)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.PlayCircle" Size="Size.Small" Color="Color.Warning"
+                               OnClick="() => UpdateStatus(context.Id, ManufacturingStatus.InProgress)" Title="Start Production" />
+            }
+            @if (context.Status == ManufacturingStatus.InProgress)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success"
+                               OnClick="() => UpdateStatus(context.Id, ManufacturingStatus.Completed)" Title="Complete" />
+            }
+            <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Default"
+                           OnClick="() => ViewOrder(context.Id)" Title="View" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<MudDialog @bind-IsVisible="_showNewDialog" MaxWidth="MaxWidth.Large">
+    <TitleContent>
+        <MudText Typo="Typo.h6">New Manufacturing Order</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudSelect T="Guid" Value="_newForm.FinishedProductId" ValueChanged="@((Guid val) => { _newForm.FinishedProductId = val; _newForm.BillOfMaterialId = null; _materialRequirements.Clear(); StateHasChanged(); })"
+                           Label="Finished Product" Required="true"
+                           ToStringFunc="@(id => _products.FirstOrDefault(p => p.Id == id)?.Name ?? string.Empty)">
+                    @foreach (var p in _products)
+                    {
+                        <MudSelectItem Value="@p.Id">@p.Name (@p.Sku)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect T="Guid?" Value="_newForm.BillOfMaterialId" ValueChanged="@((Guid? val) => { _newForm.BillOfMaterialId = val; LoadMaterialRequirements(); })"
+                           Label="Bill of Materials (Optional)" Clearable="true"
+                           ToStringFunc="@(id => _boms.FirstOrDefault(b => b.Id == id)?.Name ?? string.Empty)">
+                    @foreach (var b in _boms.Where(b => b.FinishedProductId == _newForm.FinishedProductId))
+                    {
+                        <MudSelectItem Value="@(b.Id)">@b.Name (v@b.VersionNumber)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField T="int" Value="_newForm.Quantity" ValueChanged="@((int val) => { _newForm.Quantity = val; LoadMaterialRequirements(); })"
+                                 Label="Production Quantity" Min="1" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField @bind-Value="_newForm.AdditionalManufacturingCost" Label="Additional Cost" Min="0" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField @bind-Value="_newForm.LabourCost" Label="Labour Cost" Min="0" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField @bind-Value="_newForm.PackagingCost" Label="Packaging Cost" Min="0" />
+            </MudItem>
+            <MudItem xs="12" sm="8">
+                <MudTextField @bind-Value="_newForm.Remarks" Label="Remarks" Lines="2" />
+            </MudItem>
+        </MudGrid>
+
+        @if (_materialRequirements.Any())
+        {
+            <MudText Typo="Typo.h6" Class="mt-4 mb-2">Material Requirements</MudText>
+            <MudTable Items="_materialRequirements" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Raw Material</MudTh>
+                    <MudTh>SKU</MudTh>
+                    <MudTh>Required</MudTh>
+                    <MudTh>With Wastage</MudTh>
+                    <MudTh>Available</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Unit Cost</MudTh>
+                    <MudTh>Total Cost</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Raw Material">@context.RawMaterialName</MudTd>
+                    <MudTd DataLabel="SKU">@context.RawMaterialSku</MudTd>
+                    <MudTd DataLabel="Required">@context.QuantityRequired.ToString("N2")</MudTd>
+                    <MudTd DataLabel="With Wastage">@context.QuantityWithWastage.ToString("N2")</MudTd>
+                    <MudTd DataLabel="Available">@context.AvailableStock</MudTd>
+                    <MudTd>
+                        @if (context.IsInsufficient)
+                        {
+                            <MudChip Color="Color.Error" Size="Size.Small">Insufficient</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip Color="Color.Success" Size="Size.Small">OK</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Unit Cost">₹ @context.UnitCost.ToString("N2")</MudTd>
+                    <MudTd DataLabel="Total Cost">₹ @context.TotalCost.ToString("N2")</MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            <MudDivider Class="my-2" />
+            <MudGrid>
+                <MudItem xs="12" sm="4">
+                    <MudText><strong>Total Material Cost:</strong> ₹ @_materialRequirements.Sum(m => m.TotalCost).ToString("N2")</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudText><strong>Additional Costs:</strong> ₹ @(_newForm.AdditionalManufacturingCost + _newForm.LabourCost + _newForm.PackagingCost).ToString("N2")</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudText><strong>Estimated Product Cost:</strong> ₹ @(_materialRequirements.Sum(m => m.TotalCost) + _newForm.AdditionalManufacturingCost + _newForm.LabourCost + _newForm.PackagingCost).ToString("N2")</MudText>
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showNewDialog = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitManufacturingOrder"
+                   Disabled="@(_materialRequirements.Any(m => m.IsInsufficient) || _newForm.Quantity < 1)">
+            Produce
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<MudDialog @bind-IsVisible="_showViewDialog" MaxWidth="MaxWidth.Large">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Manufacturing Order: @(_viewOrder?.ManufacturingNumber)</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_viewOrder != null)
+        {
+            <MudGrid Class="mb-3">
+                <MudItem xs="12" sm="6">
+                    <MudText><strong>Finished Product:</strong> @_viewOrder.FinishedProductName</MudText>
+                    <MudText><strong>Quantity:</strong> @_viewOrder.Quantity</MudText>
+                    <MudText><strong>Status:</strong> @_viewOrder.Status</MudText>
+                    <MudText><strong>Production Date:</strong> @_viewOrder.ProductionDate.ToString("dd MMM yyyy")</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudText><strong>Material Cost:</strong> ₹ @_viewOrder.TotalMaterialCost.ToString("N2")</MudText>
+                    <MudText><strong>Additional Cost:</strong> ₹ @_viewOrder.AdditionalManufacturingCost.ToString("N2")</MudText>
+                    <MudText><strong>Labour Cost:</strong> ₹ @_viewOrder.LabourCost.ToString("N2")</MudText>
+                    <MudText><strong>Packaging Cost:</strong> ₹ @_viewOrder.PackagingCost.ToString("N2")</MudText>
+                    <MudText><strong>Total Cost:</strong> ₹ @_viewOrder.EstimatedProductCost.ToString("N2")</MudText>
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.h6" Class="mb-2">Material Consumption</MudText>
+            <MudTable Items="_viewOrder.Items" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Raw Material</MudTh>
+                    <MudTh>SKU</MudTh>
+                    <MudTh>Required</MudTh>
+                    <MudTh>Consumed</MudTh>
+                    <MudTh>Unit</MudTh>
+                    <MudTh>Available</MudTh>
+                    <MudTh>Total Cost</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Raw Material">@context.RawMaterialName</MudTd>
+                    <MudTd DataLabel="SKU">@context.RawMaterialSku</MudTd>
+                    <MudTd DataLabel="Required">@context.QuantityRequired.ToString("N2")</MudTd>
+                    <MudTd DataLabel="Consumed">@context.QuantityConsumed.ToString("N2")</MudTd>
+                    <MudTd DataLabel="Unit">@context.Unit</MudTd>
+                    <MudTd DataLabel="Available">@context.AvailableStock</MudTd>
+                    <MudTd DataLabel="Total Cost">₹ @context.TotalCost.ToString("N2")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showViewDialog = false">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<ManufacturingOrderDto> _orders = new();
+    private List<ManufacturableProductDto> _products = new();
+    private List<BOMDto> _boms = new();
+    private List<BOMMaterialRequirementDto> _materialRequirements = new();
+    private bool _loading = true;
+    private string? _search;
+    private ManufacturingStatus? _statusFilter;
+    private bool _showNewDialog;
+    private bool _showViewDialog;
+    private ManufacturingOrderDetailDto? _viewOrder;
+
+    private CreateManufacturingOrderCommand _newForm = new();
+
+    protected override async Task OnInitializedAsync() => await LoadOrders();
+
+    private async Task LoadOrders()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new GetManufacturingOrdersQuery { SearchTerm = _search, Status = _statusFilter, PageSize = 100 });
+        if (result.Succeeded && result.Data != null)
+            _orders = result.Data.Items;
+        _loading = false;
+    }
+
+    private async Task ShowNewManufacturingDialog()
+    {
+        _newForm = new CreateManufacturingOrderCommand { Quantity = 1 };
+        _materialRequirements.Clear();
+
+        var productsResult = await Mediator.Send(new GetManufacturableProductsQuery());
+        if (productsResult.Succeeded && productsResult.Data != null)
+            _products = productsResult.Data;
+
+        var bomsResult = await Mediator.Send(new GetBOMsQuery { PageSize = 100 });
+        if (bomsResult.Succeeded && bomsResult.Data != null)
+            _boms = bomsResult.Data.Items;
+
+        _showNewDialog = true;
+    }
+
+    private async Task LoadMaterialRequirements()
+    {
+        if (_newForm.BillOfMaterialId.HasValue && _newForm.Quantity > 0)
+        {
+            var result = await Mediator.Send(new GetBOMMaterialRequirementsQuery
+            {
+                BOMId = _newForm.BillOfMaterialId.Value,
+                Quantity = _newForm.Quantity
+            });
+            if (result.Succeeded && result.Data != null)
+                _materialRequirements = result.Data;
+        }
+        else
+        {
+            _materialRequirements.Clear();
+        }
+        StateHasChanged();
+    }
+
+    private async Task SubmitManufacturingOrder()
+    {
+        var result = await Mediator.Send(_newForm);
+        if (result.Succeeded)
+        {
+            Snackbar.Add("Manufacturing order created successfully!", Severity.Success);
+            _showNewDialog = false;
+            await LoadOrders();
+        }
+        else
+        {
+            Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+    }
+
+    private async Task UpdateStatus(Guid orderId, ManufacturingStatus status)
+    {
+        var result = await Mediator.Send(new UpdateManufacturingOrderStatusCommand
+        {
+            ManufacturingOrderId = orderId,
+            Status = status
+        });
+        if (result.Succeeded)
+        {
+            Snackbar.Add(result.Message ?? $"Status updated to {status}", Severity.Success);
+            await LoadOrders();
+        }
+        else
+        {
+            Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+    }
+
+    private async Task DeleteOrder(Guid orderId)
+    {
+        var result = await Mediator.Send(new DeleteManufacturingOrderCommand { ManufacturingOrderId = orderId });
+        if (result.Succeeded)
+        {
+            Snackbar.Add("Manufacturing order deleted", Severity.Success);
+            await LoadOrders();
+        }
+        else
+        {
+            Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+    }
+
+    private async Task ViewOrder(Guid orderId)
+    {
+        var result = await Mediator.Send(new GetManufacturingOrderByIdQuery { Id = orderId });
+        if (result.Succeeded && result.Data != null)
+        {
+            _viewOrder = result.Data;
+            _showViewDialog = true;
+        }
+    }
+
+    private Color GetStatusColor(ManufacturingStatus status) => status switch
+    {
+        ManufacturingStatus.Completed => Color.Success,
+        ManufacturingStatus.InProgress => Color.Warning,
+        ManufacturingStatus.Planned => Color.Info,
+        ManufacturingStatus.Draft => Color.Default,
+        ManufacturingStatus.Cancelled => Color.Error,
+        _ => Color.Default
+    };
+}

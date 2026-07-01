@@ -5,6 +5,7 @@ using StockManagement.Domain.Common;
 using StockManagement.Domain.Entities;
 using StockManagement.Domain.Entities.Identity;
 using StockManagement.Domain.Entities.Inventory;
+using StockManagement.Domain.Entities.Manufacturing;
 
 namespace StockManagement.Infrastructure.Data;
 
@@ -40,6 +41,12 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<Coupon> Coupons => Set<Coupon>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<BillOfMaterial> BillOfMaterials => Set<BillOfMaterial>();
+    public DbSet<BillOfMaterialItem> BillOfMaterialItems => Set<BillOfMaterialItem>();
+    public DbSet<ManufacturingOrder> ManufacturingOrders => Set<ManufacturingOrder>();
+    public DbSet<ManufacturingOrderItem> ManufacturingOrderItems => Set<ManufacturingOrderItem>();
+    public DbSet<ManufacturingTransaction> ManufacturingTransactions => Set<ManufacturingTransaction>();
+    public DbSet<ManufacturingCost> ManufacturingCosts => Set<ManufacturingCost>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -212,6 +219,66 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
             e.HasIndex(a => new { a.TenantId, a.Timestamp });
             e.Property(a => a.OldValues).HasMaxLength(4000);
             e.Property(a => a.NewValues).HasMaxLength(4000);
+        });
+
+        // ---- BillOfMaterial ----
+        builder.Entity<BillOfMaterial>(e =>
+        {
+            e.HasIndex(b => new { b.TenantId, b.Name });
+            e.HasOne(b => b.FinishedProduct).WithMany().HasForeignKey(b => b.FinishedProductId);
+        });
+
+        // ---- BillOfMaterialItem ----
+        builder.Entity<BillOfMaterialItem>(e =>
+        {
+            e.HasOne(bi => bi.BillOfMaterial).WithMany(b => b.Items).HasForeignKey(bi => bi.BillOfMaterialId);
+            e.HasOne(bi => bi.RawMaterial).WithMany().HasForeignKey(bi => bi.RawMaterialId);
+            e.Property(bi => bi.QuantityRequired).HasColumnType("decimal(18,2)");
+            e.Property(bi => bi.WastagePercentage).HasColumnType("decimal(18,2)");
+        });
+
+        // ---- ManufacturingOrder ----
+        builder.Entity<ManufacturingOrder>(e =>
+        {
+            e.HasIndex(m => m.ManufacturingNumber).IsUnique();
+            e.HasOne(m => m.FinishedProduct).WithMany().HasForeignKey(m => m.FinishedProductId);
+            e.HasOne(m => m.BillOfMaterial).WithMany().HasForeignKey(m => m.BillOfMaterialId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(m => m.Warehouse).WithMany().HasForeignKey(m => m.WarehouseId).OnDelete(DeleteBehavior.SetNull);
+            e.Property(m => m.TotalMaterialCost).HasColumnType("decimal(18,2)");
+            e.Property(m => m.AdditionalManufacturingCost).HasColumnType("decimal(18,2)");
+            e.Property(m => m.LabourCost).HasColumnType("decimal(18,2)");
+            e.Property(m => m.PackagingCost).HasColumnType("decimal(18,2)");
+            e.Property(m => m.EstimatedProductCost).HasColumnType("decimal(18,2)");
+        });
+
+        // ---- ManufacturingOrderItem ----
+        builder.Entity<ManufacturingOrderItem>(e =>
+        {
+            e.HasOne(mi => mi.ManufacturingOrder).WithMany(m => m.Items).HasForeignKey(mi => mi.ManufacturingOrderId);
+            e.HasOne(mi => mi.RawMaterial).WithMany().HasForeignKey(mi => mi.RawMaterialId);
+            e.Property(mi => mi.QuantityRequired).HasColumnType("decimal(18,2)");
+            e.Property(mi => mi.QuantityConsumed).HasColumnType("decimal(18,2)");
+            e.Property(mi => mi.UnitCost).HasColumnType("decimal(18,2)");
+            e.Property(mi => mi.TotalCost).HasColumnType("decimal(18,2)");
+        });
+
+        // ---- ManufacturingTransaction ----
+        builder.Entity<ManufacturingTransaction>(e =>
+        {
+            e.HasOne(mt => mt.ManufacturingOrder).WithMany().HasForeignKey(mt => mt.ManufacturingOrderId);
+            e.HasOne(mt => mt.Product).WithMany().HasForeignKey(mt => mt.ProductId);
+        });
+
+        // ---- ManufacturingCost ----
+        builder.Entity<ManufacturingCost>(e =>
+        {
+            e.HasOne(mc => mc.ManufacturingOrder).WithMany().HasForeignKey(mc => mc.ManufacturingOrderId);
+            e.Property(mc => mc.RawMaterialCost).HasColumnType("decimal(18,2)");
+            e.Property(mc => mc.AdditionalManufacturingCost).HasColumnType("decimal(18,2)");
+            e.Property(mc => mc.LabourCost).HasColumnType("decimal(18,2)");
+            e.Property(mc => mc.PackagingCost).HasColumnType("decimal(18,2)");
+            e.Property(mc => mc.TotalCost).HasColumnType("decimal(18,2)");
+            e.Property(mc => mc.CostPerUnit).HasColumnType("decimal(18,2)");
         });
 
         // ---- Apply global tenant filters ----

@@ -3,6 +3,7 @@ using StockManagement.Domain.Common;
 using StockManagement.Domain.Entities;
 using StockManagement.Domain.Entities.Identity;
 using StockManagement.Domain.Entities.Inventory;
+using StockManagement.Domain.Entities.Manufacturing;
 
 namespace StockManagement.Application.Common.Interfaces;
 
@@ -35,6 +36,12 @@ public interface IAppDbContext
     DbSet<Coupon> Coupons { get; }
     DbSet<Notification> Notifications { get; }
     DbSet<AuditLog> AuditLogs { get; }
+    DbSet<BillOfMaterial> BillOfMaterials { get; }
+    DbSet<BillOfMaterialItem> BillOfMaterialItems { get; }
+    DbSet<ManufacturingOrder> ManufacturingOrders { get; }
+    DbSet<ManufacturingOrderItem> ManufacturingOrderItems { get; }
+    DbSet<ManufacturingTransaction> ManufacturingTransactions { get; }
+    DbSet<ManufacturingCost> ManufacturingCosts { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
