@@ -1,0 +1,160 @@
+@page "/products"
+@rendermode InteractiveServer
+@using MediatR
+@using StockManagement.Application.Features.Products.Commands
+@using StockManagement.Application.Features.Products.Queries
+@using StockManagement.Domain.Enums
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<PageTitle>Products - Stock Management ERP</PageTitle>
+
+<MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Products</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="ShowAddDialog">Add Product</MudButton>
+</MudStack>
+
+<MudTextField @bind-Value="_search" Placeholder="Search products..." Adornment="Adornment.Start"
+              AdornmentIcon="@Icons.Material.Filled.Search" DebounceInterval="300" OnDebounceIntervalElapsed="LoadProducts" />
+
+<MudTable Items="_products" Dense="true" Hover="true" Loading="_loading" RowsPerPage="15">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>SKU</MudTh>
+        <MudTh>Category</MudTh>
+        <MudTh>Selling Price</MudTh>
+        <MudTh>Stock</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="SKU">@context.Sku</MudTd>
+        <MudTd DataLabel="Category">@context.CategoryName</MudTd>
+        <MudTd DataLabel="Price">₹ @context.SellingPrice.ToString("N0")</MudTd>
+        <MudTd DataLabel="Stock">
+            <MudChip Color="@(context.StockQuantity <= context.MinimumStock ? Color.Error : Color.Success)" Size="Size.Small">
+                @context.StockQuantity
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Status">
+            <MudChip Color="@(context.Status == ProductStatus.Active ? Color.Success : Color.Default)" Size="Size.Small">
+                @context.Status
+            </MudChip>
+        </MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditProduct(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => DeleteProduct(context.Id)" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<MudDialog @bind-IsVisible="_showDialog" MaxWidth="MaxWidth.Medium">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_editingId.HasValue ? "Edit Product" : "New Product")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_form.Name" Label="Product Name" Required="true" />
+        <MudTextField @bind-Value="_form.Sku" Label="SKU" Required="true" />
+        <MudNumericField @bind-Value="_form.CostPrice" Label="Cost Price (₹)" Min="0" />
+        <MudNumericField @bind-Value="_form.SellingPrice" Label="Selling Price (₹)" Min="0" />
+        <MudNumericField @bind-Value="_form.StockQuantity" Label="Stock Quantity" Min="0" />
+        <MudNumericField @bind-Value="_form.TaxRate" Label="Tax Rate (%)" Min="0" Max="100" />
+        <MudTextField @bind-Value="_form.Description" Label="Description" Lines="3" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveProduct">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<ProductDto> _products = new();
+    private bool _loading = true;
+    private string? _search;
+    private bool _showDialog;
+    private Guid? _editingId;
+
+    private CreateProductCommand _form = new();
+
+    protected override async Task OnInitializedAsync() => await LoadProducts();
+
+    private async Task LoadProducts()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new GetProductsQuery { SearchTerm = _search, PageSize = 100 });
+        if (result.Succeeded && result.Data != null)
+            _products = result.Data.Items;
+        _loading = false;
+    }
+
+    private void ShowAddDialog()
+    {
+        _editingId = null;
+        _form = new CreateProductCommand();
+        _showDialog = true;
+    }
+
+    private void EditProduct(ProductDto dto)
+    {
+        _editingId = dto.Id;
+        _form = new CreateProductCommand
+        {
+            Name = dto.Name,
+            Sku = dto.Sku,
+            CostPrice = dto.CostPrice,
+            SellingPrice = dto.SellingPrice,
+            StockQuantity = dto.StockQuantity,
+            TaxRate = dto.TaxRate,
+            Description = dto.Description,
+            CategoryId = dto.CategoryId
+        };
+        _showDialog = true;
+    }
+
+    private void CloseDialog() => _showDialog = false;
+
+    private async Task SaveProduct()
+    {
+        if (_editingId.HasValue)
+        {
+            var update = new UpdateProductCommand
+            {
+                Id = _editingId.Value,
+                Name = _form.Name,
+                Sku = _form.Sku,
+                CostPrice = _form.CostPrice,
+                SellingPrice = _form.SellingPrice,
+                StockQuantity = _form.StockQuantity,
+                TaxRate = _form.TaxRate,
+                Description = _form.Description,
+                CategoryId = _form.CategoryId,
+                Status = ProductStatus.Active
+            };
+            var result = await Mediator.Send(update);
+            if (result.Succeeded) Snackbar.Add("Product updated!", Severity.Success);
+        }
+        else
+        {
+            var result = await Mediator.Send(_form);
+            if (result.Succeeded) Snackbar.Add("Product created!", Severity.Success);
+        }
+        _showDialog = false;
+        await LoadProducts();
+    }
+
+    private async Task DeleteProduct(Guid id)
+    {
+        var result = await Mediator.Send(new DeleteProductCommand { Id = id });
+        if (result.Succeeded)
+        {
+            Snackbar.Add("Product deleted!", Severity.Warning);
+            await LoadProducts();
+        }
+    }
+}

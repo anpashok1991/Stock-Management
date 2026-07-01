@@ -1,0 +1,114 @@
+@page "/inventory"
+@rendermode InteractiveServer
+@using MediatR
+@using StockManagement.Application.Features.Inventory.Queries
+@using StockManagement.Application.Features.Inventory.Commands
+@using StockManagement.Domain.Enums
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<PageTitle>Inventory - Stock Management ERP</PageTitle>
+
+<MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Inventory</MudText>
+    <MudSpacer />
+    <MudSwitch @bind-Checked="_lowStockOnly" Label="Low Stock Only" Color="Color.Warning"
+               OnChanged="LoadStock" />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="ShowAdjustDialog">Adjust Stock</MudButton>
+</MudStack>
+
+<MudTable Items="_stockItems" Dense="true" Hover="true" Loading="_loading" RowsPerPage="15">
+    <HeaderContent>
+        <MudTh>Product</MudTh>
+        <MudTh>SKU</MudTh>
+        <MudTh>Warehouse</MudTh>
+        <MudTh>Quantity</MudTh>
+        <MudTh>Reorder Level</MudTh>
+        <MudTh>Status</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Product">@context.ProductName</MudTd>
+        <MudTd DataLabel="SKU">@context.Sku</MudTd>
+        <MudTd DataLabel="Warehouse">@context.WarehouseName</MudTd>
+        <MudTd DataLabel="Quantity">
+            <MudText Color="@(context.IsLowStock ? Color.Error : Color.Success)">@context.Quantity</MudText>
+        </MudTd>
+        <MudTd DataLabel="Reorder">@context.ReorderLevel</MudTd>
+        <MudTd>
+            @if (context.IsLowStock)
+            {
+                <MudChip Color="Color.Error" Size="Size.Small">LOW STOCK</MudChip>
+            }
+            else
+            {
+                <MudChip Color="Color.Success" Size="Size.Small">OK</MudChip>
+            }
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<MudDialog @bind-IsVisible="_showDialog" MaxWidth="MaxWidth.Small">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Adjust Stock</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudSelect @bind-Value="_adjustForm.Type" Label="Movement Type" Required="true">
+            @foreach (var t in Enum.GetValues<StockMovementType>())
+            {
+                <MudSelectItem Value="@t">@t</MudSelectItem>
+            }
+        </MudSelect>
+        <MudNumericField @bind-Value="_adjustForm.Quantity" Label="Quantity" Min="1" Required="true" />
+        <MudTextField @bind-Value="_adjustForm.Notes" Label="Notes" Lines="2" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showDialog = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAdjust">Submit</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<StockDto> _stockItems = new();
+    private bool _loading = true;
+    private bool _lowStockOnly;
+    private bool _showDialog;
+
+    private AdjustStockCommand _adjustForm = new();
+
+    protected override async Task OnInitializedAsync() => await LoadStock();
+
+    private async Task LoadStock()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new GetStockQuery { LowStockOnly = _lowStockOnly, PageSize = 100 });
+        if (result.Succeeded && result.Data != null)
+            _stockItems = result.Data.Items;
+        _loading = false;
+    }
+
+    private void ShowAdjustDialog()
+    {
+        _adjustForm = new AdjustStockCommand();
+        _showDialog = true;
+    }
+
+    private async Task SubmitAdjust()
+    {
+        if (_stockItems.Any())
+        {
+            _adjustForm.ProductId = _stockItems.First().ProductId;
+            _adjustForm.WarehouseId = _stockItems.First().WarehouseId;
+        }
+        var result = await Mediator.Send(_adjustForm);
+        if (result.Succeeded)
+        {
+            Snackbar.Add("Stock adjusted!", Severity.Success);
+            _showDialog = false;
+            await LoadStock();
+        }
+    }
+}

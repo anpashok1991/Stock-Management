@@ -1,0 +1,127 @@
+@page "/customers"
+@rendermode InteractiveServer
+@using MediatR
+@using StockManagement.Application.Features.Customers.Commands
+@using StockManagement.Application.Features.Customers.Queries
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<PageTitle>Customers - Stock Management ERP</PageTitle>
+
+<MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Customers</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="ShowAddDialog">Add Customer</MudButton>
+</MudStack>
+
+<MudTextField @bind-Value="_search" Placeholder="Search customers..." Adornment="Adornment.Start"
+              AdornmentIcon="@Icons.Material.Filled.Search" DebounceInterval="300" OnDebounceIntervalElapsed="LoadCustomers" />
+
+<MudTable Items="_customers" Dense="true" Hover="true" Loading="_loading" RowsPerPage="15">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Email</MudTh>
+        <MudTh>Phone</MudTh>
+        <MudTh>Total Spent</MudTh>
+        <MudTh>Loyalty Points</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.FullName</MudTd>
+        <MudTd DataLabel="Email">@context.Email</MudTd>
+        <MudTd DataLabel="Phone">@context.Phone</MudTd>
+        <MudTd DataLabel="Total Spent">₹ @context.TotalSpent.ToString("N0")</MudTd>
+        <MudTd DataLabel="Loyalty">@context.LoyaltyPoints</MudTd>
+        <MudTd>
+            <MudChip Color="@(context.IsActive ? Color.Success : Color.Error)" Size="Size.Small">
+                @(context.IsActive ? "Active" : "Inactive")
+            </MudChip>
+        </MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditCustomer(context)" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<MudDialog @bind-IsVisible="_showDialog" MaxWidth="MaxWidth.Small">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_editingId.HasValue ? "Edit Customer" : "New Customer")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_form.FirstName" Label="First Name" Required="true" />
+        <MudTextField @bind-Value="_form.LastName" Label="Last Name" Required="true" />
+        <MudTextField @bind-Value="_form.Email" Label="Email" />
+        <MudTextField @bind-Value="_form.Phone" Label="Phone" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveCustomer">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<CustomerDto> _customers = new();
+    private bool _loading = true;
+    private string? _search;
+    private bool _showDialog;
+    private Guid? _editingId;
+
+    private CreateCustomerCommand _form = new();
+
+    protected override async Task OnInitializedAsync() => await LoadCustomers();
+
+    private async Task LoadCustomers()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new GetCustomersQuery { SearchTerm = _search, PageSize = 100 });
+        if (result.Succeeded && result.Data != null)
+            _customers = result.Data.Items;
+        _loading = false;
+    }
+
+    private void ShowAddDialog()
+    {
+        _editingId = null;
+        _form = new CreateCustomerCommand();
+        _showDialog = true;
+    }
+
+    private void EditCustomer(CustomerDto dto)
+    {
+        _editingId = dto.Id;
+        _form = new CreateCustomerCommand { FirstName = dto.FirstName, LastName = dto.LastName, Email = dto.Email, Phone = dto.Phone };
+        _showDialog = true;
+    }
+
+    private void CloseDialog() => _showDialog = false;
+
+    private async Task SaveCustomer()
+    {
+        if (_editingId.HasValue)
+        {
+            var update = new UpdateCustomerCommand
+            {
+                Id = _editingId.Value,
+                FirstName = _form.FirstName,
+                LastName = _form.LastName,
+                Email = _form.Email,
+                Phone = _form.Phone,
+                IsActive = true
+            };
+            var result = await Mediator.Send(update);
+            if (result.Succeeded) Snackbar.Add("Customer updated!", Severity.Success);
+        }
+        else
+        {
+            var result = await Mediator.Send(_form);
+            if (result.Succeeded) Snackbar.Add("Customer created!", Severity.Success);
+        }
+        _showDialog = false;
+        await LoadCustomers();
+    }
+}

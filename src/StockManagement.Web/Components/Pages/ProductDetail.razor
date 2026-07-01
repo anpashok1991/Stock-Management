@@ -1,0 +1,95 @@
+@page "/product/{Id:guid}"
+@rendermode InteractiveServer
+@using MediatR
+@using StockManagement.Application.Features.Products.Queries
+@inject IMediator Mediator
+
+<PageTitle>Product Details</PageTitle>
+
+@if (_product == null)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudBreadcrumbs Items="_breadcrumbs" Class="mb-4" />
+
+    <MudGrid>
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudImage Src="@(_product.ImageUrl ?? "https://placehold.co/600x400?text=No+Image")"
+                          Fluid="true" Class="rounded" />
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="7">
+            <MudText Typo="Typo.h4" Class="mb-2">@_product.Name</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                SKU: @_product.Sku | Category: @_product.CategoryName
+            </MudText>
+
+            <MudDivider Class="my-3" />
+
+            <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
+                <MudText Typo="Typo.h4" Color="Color.Primary">₹ @_product.SellingPrice.ToString("N0")</MudText>
+                @if (_product.Discount > 0)
+                {
+                    <MudText Typo="Typo.h6" Style="text-decoration:line-through;" Class="mud-text-secondary">
+                        ₹ @((_product.SellingPrice / (1 - _product.Discount / 100m)).ToString("N0"))
+                    </MudText>
+                    <MudChip Color="Color.Error" Size="Size.Medium">@_product.Discount% OFF</MudChip>
+                }
+            </MudStack>
+
+            <MudText Typo="Typo.body1" Class="mb-4">
+                @(_product.Description ?? "No description available.")
+            </MudText>
+
+            <MudStack Direction="Row" Spacing="4" Class="mb-4">
+                <MudText>
+                    <b>Tax:</b> @_product.TaxRate%
+                </MudText>
+                <MudText>
+                    <b>Unit:</b> @_product.Unit
+                </MudText>
+                <MudText>
+                    @if (_product.StockQuantity > 0)
+                    {
+                        <span class="mud-text-success"><b>In Stock</b> (@_product.StockQuantity available)</span>
+                    }
+                    else
+                    {
+                        <span class="mud-text-error"><b>Out of Stock</b></span>
+                    }
+                </MudText>
+            </MudStack>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.ShoppingCart"
+                       Disabled="@(_product.StockQuantity == 0)">
+                Add to Cart
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private ProductDto? _product;
+
+    private List<BreadcrumbItem> _breadcrumbs = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Mediator.Send(new GetProductByIdQuery { Id = Id });
+        if (result.Succeeded && result.Data != null)
+        {
+            _product = result.Data;
+            _breadcrumbs = new List<BreadcrumbItem>
+            {
+                new("Home", "/"),
+                new("Store", "/store"),
+                new(_product.Name, $"/product/{Id}")
+            };
+        }
+    }
+}

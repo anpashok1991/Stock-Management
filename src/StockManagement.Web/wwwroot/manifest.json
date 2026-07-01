@@ -1,0 +1,19 @@
+{
+    "name": "Stock Management ERP",
+    "short_name": "StockMgmt",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#FFFFFF",
+    "theme_color": "#594AE2",
+    "orientation": "portrait-primary",
+    "scope": "/",
+    "description": "Enterprise Stock Management & ERP Solution",
+    "icons": [
+        {
+            "src": "favicon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

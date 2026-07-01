@@ -1,0 +1,711 @@
+Act as a Principal Enterprise Solution Architect, ERP Consultant, Senior .NET 9 Full Stack Developer, Database Architect, DevOps Engineer, and UI/UX Designer.
+
+Your objective is to design and develop a **production-ready, enterprise-grade, modular, scalable, multi-tenant ERP (Enterprise Resource Planning) Solution** for retail businesses.
+
+This should NOT be a demo application or CRUD project.
+
+This should be a complete commercial ERP solution comparable to Odoo, ERPNext, Zoho Inventory, Oracle NetSuite (for retail modules), TallyPrime, and Microsoft Dynamics Business Central (Retail), but with a modern Amazon/Flipkart-like customer experience.
+
+The system must be designed with enterprise software engineering principles, clean architecture, SOLID principles, Domain Driven Design where applicable, CQRS where beneficial, Repository Pattern, Unit of Work, Dependency Injection, and future cloud-native deployment in mind.
+
+=========================================================
+TECHNOLOGY STACK
+=========================================================
+
+Backend
+
+• .NET 9
+• ASP.NET Core
+• Blazor Web App (.NET 9 Interactive Server + WebAssembly where appropriate)
+• Entity Framework Core
+• ASP.NET Core Identity
+• Clean Architecture
+• Repository Pattern
+• Unit of Work
+• CQRS
+• MediatR
+• Fluent Validation
+• AutoMapper
+• Serilog
+• Dependency Injection
+• Audit Logging
+• REST APIs
+• SignalR
+• Background Services
+
+Database
+
+You may choose ANY production-ready database that best fits this ERP solution.
+
+Preferred databases include:
+
+• PostgreSQL (Recommended)
+• SQL Server
+• MySQL
+• MariaDB
+• SQLite (Development)
+• Oracle (Optional)
+
+Choose the most suitable database based on scalability, performance, reliability, and enterprise best practices.
+
+The database should support:
+
+• Multi-Tenant Architecture
+• High Performance
+• ACID Transactions
+• Backup & Restore
+• Indexing
+• Optimized Queries
+• Stored Procedures where appropriate
+• Migrations
+• Seed Data
+
+Frontend
+
+• Blazor Components
+• Responsive Design
+• Mobile First
+• Bootstrap 5 / Tailwind CSS
+• MudBlazor / Fluent UI (optional)
+• Modern Dashboard
+• Dark Mode
+• Light Mode
+• Responsive Tables
+• Charts
+• Toast Notifications
+• Notification Center
+• Search Everywhere
+• Keyboard Shortcuts
+
+=========================================================
+PWA REQUIREMENTS
+=========================================================
+
+Implement complete Progressive Web App support.
+
+• Installable
+• Offline Support
+• Service Worker
+• Manifest
+• Push Notifications
+• Background Sync
+• Mobile Optimized
+
+=========================================================
+THE APPLICATION MUST BE A COMPLETE ERP
+=========================================================
+
+This application should be a COMPLETE ERP SOLUTION for both administrators and end users.
+
+The Admin Portal should provide complete enterprise resource management capabilities.
+
+The End User Portal should provide an experience similar to leading e-commerce platforms like Amazon and Flipkart.
+
+Customer-facing UI should include:
+
+• Beautiful Home Page
+• Product Catalog
+• Category Navigation
+• Product Search
+• Smart Filters
+• Product Details
+• Product Images
+• Product Variants
+• Wishlist
+• Shopping Cart
+• Checkout
+• Coupons
+• Discounts
+• Product Reviews
+• Ratings
+• Related Products
+• Recently Viewed
+• Featured Products
+• Best Sellers
+• New Arrivals
+• Personalized Recommendations (future ready)
+• Order Tracking
+• Customer Profile
+• Order History
+• Saved Addresses
+• Notifications
+• Mobile Responsive Design
+
+The shopping experience should resemble Amazon/Flipkart while the admin experience should resemble a professional ERP dashboard.
+
+=========================================================
+MULTI TENANT / MULTI SHOP
+=========================================================
+
+Support unlimited shops.
+
+Each shop should have:
+
+• Shop Name
+• Logo
+• Address
+• Phone
+• Email
+• GST Number
+• PAN
+• Tax Settings
+• Currency
+• Receipt Template
+• Theme Colors
+• Notification Settings
+• Branch Code
+• Time Zone
+• Language
+• Business Type
+
+All data must remain isolated per tenant/shop.
+
+=========================================================
+ROLE BASED ACCESS CONTROL
+=========================================================
+
+Implement enterprise RBAC.
+
+Roles include:
+
+• Super Admin
+• Organization Admin
+• Shop Admin
+• Manager
+• Inventory Manager
+• Cashier
+• Sales Executive
+• Purchase Executive
+• Accountant
+• Customer
+• Guest
+
+Each role should have configurable permissions.
+
+=========================================================
+AUTHENTICATION
+=========================================================
+
+Implement:
+
+• Login
+• Logout
+• Registration
+• Email Verification
+• Mobile OTP (future ready)
+• Password Reset
+• Change Password
+• MFA Ready
+• Account Lockout
+• Session Management
+• Remember Me
+• JWT Ready
+• OAuth Ready
+• Google Login (future)
+• Microsoft Login (future)
+
+=========================================================
+PRODUCT MANAGEMENT
+=========================================================
+
+Products should support:
+
+• Name
+• SKU
+• Barcode
+• QR Code
+• Category
+• Brand
+• Supplier
+• Description
+• Images
+• Videos
+• Cost Price
+• Selling Price
+• Tax
+• Discount
+• Unit
+• Stock
+• Minimum Stock
+• Maximum Stock
+• Reorder Level
+• Expiry Date
+• Batch Number
+• Serial Number
+• Product Status
+
+Dynamic Attributes
+
+The admin should create unlimited custom fields without changing database schema.
+
+Examples:
+
+Electronics
+
+RAM
+Processor
+Storage
+Warranty
+
+Grocery
+
+Weight
+Manufacture Date
+Expiry Date
+
+Clothing
+
+Size
+Color
+Fabric
+
+Furniture
+
+Material
+Dimensions
+Weight
+
+Use:
+
+ProductAttributeDefinitions
+
+ProductAttributeValues
+
+=========================================================
+BARCODE MANAGEMENT
+=========================================================
+
+Support:
+
+• Auto Barcode
+• Manual Barcode
+• QR Code
+• Barcode Validation
+• Barcode Printing
+• Barcode Scanner Integration
+
+=========================================================
+INVENTORY MANAGEMENT
+=========================================================
+
+Implement:
+
+• Stock In
+• Stock Out
+• Purchase
+• Sales
+• Returns
+• Damaged Goods
+• Adjustments
+• Transfers
+• Warehouse Support
+• Batch Tracking
+• Serial Tracking
+• Inventory Audit
+
+=========================================================
+PURCHASE MANAGEMENT
+=========================================================
+
+Features:
+
+• Suppliers
+• Purchase Orders
+• GRN
+• Purchase Returns
+• Payment Tracking
+• Outstanding Balance
+• Purchase Reports
+
+=========================================================
+SALES MANAGEMENT
+=========================================================
+
+Features:
+
+• POS Billing
+• Barcode Billing
+• Cart
+• Discounts
+• Taxes
+• Multiple Payment Modes
+• Split Payments
+• Returns
+• Refunds
+• Sales Reports
+
+=========================================================
+CUSTOMER MANAGEMENT
+=========================================================
+
+Customer Profiles
+
+Wishlist
+
+Loyalty Points
+
+Reward System
+
+Addresses
+
+Purchase History
+
+Returns
+
+Coupons
+
+=========================================================
+ORDER MANAGEMENT
+=========================================================
+
+Order Lifecycle
+
+Pending
+
+Confirmed
+
+Packed
+
+Shipped
+
+Delivered
+
+Cancelled
+
+Returned
+
+Refunded
+
+=========================================================
+INVOICE MODULE
+=========================================================
+
+Professional PDF invoices.
+
+Include:
+
+Logo
+
+GST
+
+Customer
+
+Products
+
+Taxes
+
+Discounts
+
+Grand Total
+
+QR Code
+
+Barcode
+
+Download
+
+Print
+
+Email
+
+=========================================================
+NOTIFICATIONS
+=========================================================
+
+Notification Providers
+
+INotificationProvider
+
+Implement:
+
+• In-App
+• Browser Push
+
+Future:
+
+• Email
+• SMS
+• WhatsApp
+• Telegram
+
+=========================================================
+DASHBOARDS
+=========================================================
+
+Create dashboards for:
+
+Super Admin
+
+Organization Admin
+
+Shop Admin
+
+Manager
+
+Cashier
+
+Inventory Manager
+
+Customer
+
+=========================================================
+REPORTS
+=========================================================
+
+Generate
+
+Sales
+
+Purchase
+
+Inventory
+
+Tax
+
+GST
+
+Profit & Loss
+
+Revenue
+
+Expenses
+
+Customers
+
+Suppliers
+
+Audit Logs
+
+Employee Activity
+
+=========================================================
+EXPORTS
+=========================================================
+
+Support
+
+PDF
+
+Excel
+
+CSV
+
+Print
+
+=========================================================
+AUDIT LOGGING
+=========================================================
+
+Track every operation.
+
+Store:
+
+User
+
+Role
+
+IP Address
+
+Browser
+
+Action
+
+Entity
+
+Old Value
+
+New Value
+
+Timestamp
+
+Tenant
+
+=========================================================
+SETTINGS
+=========================================================
+
+ERP-wide settings.
+
+Shop settings.
+
+Theme settings.
+
+Localization.
+
+Currency.
+
+Taxes.
+
+Invoice templates.
+
+Receipt templates.
+
+Email templates.
+
+Notification settings.
+
+=========================================================
+FUTURE READY MODULES
+=========================================================
+
+Architecture should support adding modules without redesign.
+
+Examples
+
+CRM
+
+HRMS
+
+Payroll
+
+Accounting
+
+Manufacturing
+
+Warehouse
+
+Logistics
+
+Delivery
+
+Vendor Portal
+
+Customer Portal
+
+Mobile Apps
+
+Cloud Sync
+
+AI Forecasting
+
+Business Intelligence
+
+Chatbot
+
+Analytics
+
+Multi-language
+
+Multi-currency
+
+Marketplace Integration
+
+Amazon
+
+Flipkart
+
+Shopify
+
+WooCommerce
+
+=========================================================
+DEVOPS
+=========================================================
+
+Docker
+
+Docker Compose
+
+CI/CD Ready
+
+Azure Ready
+
+AWS Ready
+
+Logging
+
+Health Checks
+
+Caching
+
+Redis Ready
+
+=========================================================
+DELIVERABLES
+=========================================================
+
+Generate the project step by step.
+
+Include:
+
+1. Complete Solution Architecture
+
+2. Folder Structure
+
+3. Database Design
+
+4. ER Diagram
+
+5. Entity Models
+
+6. DTOs
+
+7. Repositories
+
+8. Unit of Work
+
+9. Services
+
+10. CQRS Handlers
+
+11. Authentication
+
+12. Authorization
+
+13. Middleware
+
+14. Exception Handling
+
+15. Logging
+
+16. Validation
+
+17. API Layer
+
+18. Blazor Components
+
+19. Dashboard UI
+
+20. Customer UI (Amazon/Flipkart Style)
+
+21. Admin ERP UI
+
+22. Inventory Module
+
+23. Purchase Module
+
+24. Sales Module
+
+25. Customer Module
+
+26. Supplier Module
+
+27. Reports Module
+
+28. Notification Module
+
+29. PDF Invoice Module
+
+30. Barcode Module
+
+31. PWA Configuration
+
+32. Database Migration
+
+33. Seed Data
+
+34. Unit Tests
+
+35. Integration Tests
+
+36. Deployment Guide
+
+37. Docker Configuration
+
+38. Performance Optimization
+
+39. Security Best Practices
+
+40. Step-by-Step Implementation Guide
+
+Generate production-quality code with detailed comments, enterprise best practices, and scalable architecture suitable for a real-world commercial ERP product.

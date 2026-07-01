@@ -1,0 +1,65 @@
+﻿@using MudBlazor
+@inherits LayoutComponentBase
+
+<MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
+        <MudSpacer />
+        <MudText Typo="Typo.h6">Stock Management ERP</MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       Color="Color.Inherit" OnClick="ToggleTheme" />
+        <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" />
+        <MudAvatar Color="Color.Primary">A</MudAvatar>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2" Width="260px">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6" Class="px-4">StockMgmt</MudText>
+            <MudText Typo="Typo.body2" Class="px-4 mud-text-secondary">Admin Portal</MudText>
+        </MudDrawerHeader>
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent Class="pa-4">
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+
+    private MudTheme _theme = new()
+    {
+        Palette = new Palette()
+        {
+            Primary = "#594AE2",
+            Secondary = "#546E7A",
+            AppbarBackground = "#594AE2",
+            Background = "#F5F5F5",
+        },
+        PaletteDark = new Palette()
+        {
+            Primary = "#7C6FFF",
+            Secondary = "#546E7A",
+            AppbarBackground = "#1E1E2D",
+            Background = "#1E1E2D",
+            Surface = "#2A2A3C",
+        }
+    };
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void ToggleTheme() => _isDarkMode = !_isDarkMode;
+}

@@ -1,0 +1,118 @@
+@page "/store"
+@rendermode InteractiveServer
+@using MediatR
+@using StockManagement.Application.Features.Products.Queries
+@inject IMediator Mediator
+
+<PageTitle>Store - Stock Management</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge">
+    <MudText Typo="Typo.h4" Class="mb-4">Product Catalog</MudText>
+
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="6" md="4">
+            <MudTextField @bind-Value="_search" Placeholder="Search products..."
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          DebounceInterval="300" OnDebounceIntervalElapsed="LoadProducts" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudNumericField @bind-Value="_minPrice" Label="Min Price" Variant="Variant.Outlined" Min="0" Adornment="Adornment.Start" AdornmentText="₹" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="2">
+            <MudNumericField @bind-Value="_maxPrice" Label="Max Price" Variant="Variant.Outlined" Min="0" Adornment="Adornment.Start" AdornmentText="₹" />
+        </MudItem>
+    </MudGrid>
+
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" />
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var product in _products)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3">
+                    <MudCard Class="h-100" Style="cursor:pointer;" @onclick="() => ViewProduct(product.Id)">
+                        <MudCardMedia Image="@(product.ImageUrl ?? "https://placehold.co/300x200?text=No+Image")" Height="200" />
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6" Class="mb-1">@product.Name</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">@product.CategoryName</MudText>
+                            <MudStack Direction="Row" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudText Typo="Typo.h6" Color="Color.Primary">₹ @product.SellingPrice.ToString("N0")</MudText>
+                                @if (product.Discount > 0)
+                                {
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary" Style="text-decoration:line-through;">
+                                        ₹ @((product.SellingPrice / (1 - product.Discount / 100m)).ToString("N0"))
+                                    </MudText>
+                                    <MudChip Color="Color.Error" Size="Size.Small">@product.Discount% OFF</MudChip>
+                                }
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Class="mt-2">
+                                @if (product.StockQuantity > 0)
+                                {
+                                    <span class="mud-text-success">In Stock (@product.StockQuantity available)</span>
+                                }
+                                else
+                                {
+                                    <span class="mud-text-error">Out of Stock</span>
+                                }
+                            </MudText>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+
+    @if (_products.Any())
+    {
+        <MudStack AlignItems="AlignItems.Center" Class="mt-4">
+            <MudPagination Count="@_totalPages" Selected="@_pageNumber" SelectedChanged="OnPageChange" />
+        </MudStack>
+    }
+</MudContainer>
+
+@code {
+    private List<ProductDto> _products = new();
+    private bool _loading = true;
+    private string? _search;
+    private decimal? _minPrice;
+    private decimal? _maxPrice;
+    private int _pageNumber = 1;
+    private int _totalPages = 1;
+    private const int PageSize = 12;
+
+    protected override async Task OnInitializedAsync() => await LoadProducts();
+
+    private async Task LoadProducts()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new GetProductsQuery
+        {
+            SearchTerm = _search,
+            MinPrice = _minPrice,
+            MaxPrice = _maxPrice,
+            PageNumber = _pageNumber,
+            PageSize = PageSize,
+            Status = Domain.Enums.ProductStatus.Active
+        });
+
+        if (result.Succeeded && result.Data != null)
+        {
+            _products = result.Data.Items;
+            _totalPages = result.Data.TotalPages;
+        }
+        _loading = false;
+    }
+
+    private async Task OnPageChange(int page)
+    {
+        _pageNumber = page;
+        await LoadProducts();
+    }
+
+    private void ViewProduct(Guid id) => Nav.NavigateTo($"/product/{id}");
+
+    [Inject] NavigationManager Nav { get; set; } = default!;
+}

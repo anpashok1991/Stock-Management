@@ -1,0 +1,114 @@
+@page "/orders"
+@rendermode InteractiveServer
+@using MediatR
+@using StockManagement.Application.Features.Orders.Queries
+@using StockManagement.Application.Features.Orders.Commands
+@using StockManagement.Domain.Enums
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<PageTitle>Orders - Stock Management ERP</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Orders</MudText>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" sm="4">
+        <MudSelect T="OrderStatus?" Value="_statusFilter" ValueChanged="@(v => { _statusFilter = v; LoadOrders(); })"
+                   Label="Filter by Status" Clearable="true">
+            @foreach (var s in Enum.GetValues<OrderStatus>())
+            {
+                <MudSelectItem Value="@((OrderStatus?)s)">@s</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="12" sm="4">
+        <MudTextField @bind-Value="_search" Placeholder="Search by order number..."
+                      DebounceInterval="300" OnDebounceIntervalElapsed="LoadOrders" />
+    </MudItem>
+</MudGrid>
+
+<MudTable Items="_orders" Dense="true" Hover="true" Loading="_loading" RowsPerPage="15">
+    <HeaderContent>
+        <MudTh>Order #</MudTh>
+        <MudTh>Customer</MudTh>
+        <MudTh>Items</MudTh>
+        <MudTh>Grand Total</MudTh>
+        <MudTh>Payment</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Date</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Order #">@context.OrderNumber</MudTd>
+        <MudTd DataLabel="Customer">@(context.CustomerName ?? "Walk-in")</MudTd>
+        <MudTd DataLabel="Items">@context.ItemCount</MudTd>
+        <MudTd DataLabel="Total">₹ @context.GrandTotal.ToString("N0")</MudTd>
+        <MudTd DataLabel="Payment">
+            <MudChip Color="@(context.PaymentStatus == PaymentStatus.Paid ? Color.Success : Color.Warning)" Size="Size.Small">
+                @context.PaymentStatus
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Status">
+            <MudChip Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+        </MudTd>
+        <MudTd DataLabel="Date">@context.CreatedAt.ToString("dd MMM yyyy")</MudTd>
+        <MudTd>
+            @if (context.Status == OrderStatus.Pending)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success"
+                               OnClick="() => UpdateStatus(context.Id, OrderStatus.Confirmed)" Title="Confirm" />
+            }
+            @if (context.Status == OrderStatus.Confirmed)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.LocalShipping" Size="Size.Small" Color="Color.Info"
+                               OnClick="() => UpdateStatus(context.Id, OrderStatus.Shipped)" Title="Ship" />
+            }
+            @if (context.Status == OrderStatus.Shipped)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.DoneAll" Size="Size.Small" Color="Color.Success"
+                               OnClick="() => UpdateStatus(context.Id, OrderStatus.Delivered)" Title="Deliver" />
+            }
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private List<OrderDto> _orders = new();
+    private bool _loading = true;
+    private string? _search;
+    private OrderStatus? _statusFilter;
+
+    protected override async Task OnInitializedAsync() => await LoadOrders();
+
+    private async Task LoadOrders()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new GetOrdersQuery { SearchTerm = _search, Status = _statusFilter, PageSize = 100 });
+        if (result.Succeeded && result.Data != null)
+            _orders = result.Data.Items;
+        _loading = false;
+    }
+
+    private async Task UpdateStatus(Guid orderId, OrderStatus status)
+    {
+        var result = await Mediator.Send(new UpdateOrderStatusCommand { OrderId = orderId, Status = status });
+        if (result.Succeeded)
+        {
+            Snackbar.Add($"Order status updated to {status}", Severity.Success);
+            await LoadOrders();
+        }
+    }
+
+    private Color GetStatusColor(OrderStatus status) => status switch
+    {
+        OrderStatus.Delivered => Color.Success,
+        OrderStatus.Shipped => Color.Info,
+        OrderStatus.Confirmed => Color.Primary,
+        OrderStatus.Pending => Color.Warning,
+        OrderStatus.Cancelled => Color.Error,
+        _ => Color.Default
+    };
+}

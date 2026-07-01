@@ -1,0 +1,105 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using StockManagement.Application.Features.Dashboard.Queries
+@using MediatR
+@inject IMediator Mediator
+
+<PageTitle>Dashboard - Stock Management ERP</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Dashboard</MudText>
+
+@if (_stats != null)
+{
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Total Revenue</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Primary">₹ @_stats.TotalRevenue.ToString("N0")</MudText>
+                <MudText Typo="Typo.caption">Today: ₹ @_stats.TodayRevenue.ToString("N0")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Total Orders</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Secondary">@_stats.TotalOrders</MudText>
+                <MudText Typo="Typo.caption">Today: @_stats.TodayOrders</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Products</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Info">@_stats.TotalProducts</MudText>
+                <MudText Typo="Typo.caption">Low stock: @_stats.LowStockProducts</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Customers</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Success">@_stats.TotalCustomers</MudText>
+                <MudText Typo="Typo.caption">Pending orders: @_stats.PendingOrders</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid>
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" Class="mb-2">Recent Orders</MudText>
+                <MudTable Items="_stats.RecentOrders" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh>Order #</MudTh>
+                        <MudTh>Total</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Date</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Order #">@context.OrderNumber</MudTd>
+                        <MudTd DataLabel="Total">₹ @context.GrandTotal.ToString("N0")</MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudChip Color="@GetStatusColor(context.Status)" Size="Size.Small">@context.Status</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Date">@context.CreatedAt.ToString("dd MMM yyyy")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" Class="mb-2">Top Products</MudText>
+                @foreach (var p in _stats.TopProducts)
+                {
+                    <MudListItem>
+                        <div class="d-flex justify-space-between">
+                            <MudText>@p.Name</MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">₹ @p.Revenue.ToString("N0")</MudText>
+                        </div>
+                    </MudListItem>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+else
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+
+@code {
+    private DashboardDto? _stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Mediator.Send(new GetDashboardStatsQuery());
+        if (result.Succeeded) _stats = result.Data;
+    }
+
+    private Color GetStatusColor(string status) => status switch
+    {
+        "Delivered" => Color.Success,
+        "Shipped" => Color.Info,
+        "Pending" => Color.Warning,
+        "Cancelled" => Color.Error,
+        _ => Color.Default
+    };
+}
