@@ -13,10 +13,15 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 {
     private readonly ITenantContext? _tenantContext;
 
+    // Mutable per-request tenant id used by query filters. Set this from middleware each HTTP request.
+    // Use Guid.Empty to indicate no tenant selected.
+    public Guid CurrentTenantId { get; set; }
+
     public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext? tenantContext = null)
         : base(options)
     {
         _tenantContext = tenantContext;
+        CurrentTenantId = tenantContext?.TenantId ?? Guid.Empty;
     }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
@@ -292,11 +297,11 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
             var clrType = entityType.ClrType;
             if (typeof(TenantEntity).IsAssignableFrom(clrType))
             {
+                // Build expression: e => e.TenantId == this.CurrentTenantId
                 var parameter = System.Linq.Expressions.Expression.Parameter(clrType, "e");
                 var property = System.Linq.Expressions.Expression.Property(parameter, nameof(TenantEntity.TenantId));
-                var tenantId = _tenantContext?.TenantId ?? Guid.Empty;
-                var constant = System.Linq.Expressions.Expression.Constant(tenantId);
-                var comparison = System.Linq.Expressions.Expression.Equal(property, constant);
+                var currentTenantProperty = System.Linq.Expressions.Expression.Property(System.Linq.Expressions.Expression.Constant(this), nameof(CurrentTenantId));
+                var comparison = System.Linq.Expressions.Expression.Equal(property, currentTenantProperty);
                 var lambda = System.Linq.Expressions.Expression.Lambda(comparison, parameter);
 
                 builder.Entity(clrType).HasQueryFilter(lambda);
@@ -306,6 +311,13 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        // Debug logging: write current tenant into a debug message so runtime can show tenant during tests
+        try
+        {
+            var tenantVal = CurrentTenantId;
+            System.Diagnostics.Debug.WriteLine($"AppDbContext.SaveChangesAsync CurrentTenantId={tenantVal}");
+        }
+        catch { }
         foreach (var entry in ChangeTracker.Entries<AuditableEntity>())
         {
             switch (entry.State)
@@ -323,7 +335,15 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
         {
             if (entry.State == EntityState.Added && entry.Entity.TenantId == Guid.Empty)
             {
-                entry.Entity.TenantId = _tenantContext?.TenantId ?? Guid.Empty;
+                if (CurrentTenantId != Guid.Empty)
+                {
+                    entry.Entity.TenantId = CurrentTenantId;
+                }
+                else if (_tenantContext?.TenantId != null)
+                {
+                    entry.Entity.TenantId = _tenantContext.TenantId.Value;
+                }
+                // else leave as Guid.Empty (seeding or explicit set)
             }
         }
 

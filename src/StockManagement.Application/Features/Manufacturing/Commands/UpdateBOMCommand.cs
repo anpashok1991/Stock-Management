@@ -31,7 +31,7 @@ internal class UpdateBOMCommandHandler : IRequestHandler<UpdateBOMCommand, Resul
 
     public async Task<Result> Handle(UpdateBOMCommand request, CancellationToken ct)
     {
-        var tenantId = _tenant.TenantId ?? Guid.Empty;
+        // Rely on AppDbContext.CurrentTenantId and global query filters instead of explicit tenant matching
 
         var bom = await _context.BillOfMaterials
             .Include(b => b.Items)
@@ -63,8 +63,7 @@ internal class UpdateBOMCommandHandler : IRequestHandler<UpdateBOMCommand, Resul
                 Unit = item.Unit,
                 WastagePercentage = item.WastagePercentage,
                 IsOptional = item.IsOptional,
-                Remarks = item.Remarks,
-                TenantId = tenantId
+                Remarks = item.Remarks
             });
         }
 

@@ -38,7 +38,7 @@ internal class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, R
 
     public async Task<Result<Guid>> Handle(CreateOrderCommand request, CancellationToken ct)
     {
-        var tenantId = _tenant.TenantId ?? Guid.Empty;
+        // Rely on AppDbContext.CurrentTenantId and global query filters instead of explicit tenant matching
 
         var order = new Order
         {
@@ -48,7 +48,6 @@ internal class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, R
             PaymentMode = request.PaymentMode,
             Notes = request.Notes,
             CouponCode = request.CouponCode,
-            TenantId = tenantId,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -70,8 +69,7 @@ internal class CreateOrderCommandHandler : IRequestHandler<CreateOrderCommand, R
                 TaxRate = item.TaxRate,
                 TaxAmount = lineTax,
                 Discount = lineDiscount,
-                LineTotal = lineTotal,
-                TenantId = tenantId
+                LineTotal = lineTotal
             });
 
             subTotal += item.Quantity * item.UnitPrice;

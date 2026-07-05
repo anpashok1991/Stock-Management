@@ -26,6 +26,22 @@ public class TenantContext : ITenantContext
         TenantName = http.Request.Headers["X-Tenant-Name"].FirstOrDefault();
     }
 
+    // Allow resolving tenant from authenticated user's claims as well (useful for Blazor Server circuits)
+    public TenantContext(IHttpContextAccessor accessor, System.Security.Claims.ClaimsPrincipal? user = null)
+    {
+        var http = accessor.HttpContext;
+        var principal = user ?? http?.User;
+        if (principal != null)
+        {
+            var claim = principal.FindFirst("tenant_id") ?? principal.FindFirst("tenant") ?? principal.FindFirst("X-Tenant-Id");
+            if (claim != null && Guid.TryParse(claim.Value, out var tid))
+            {
+                TenantId = tid;
+            }
+            TenantName = principal.FindFirst("tenant_name")?.Value ?? TenantName;
+        }
+    }
+
     public void SetTenant(Guid id, string? name = null)
     {
         TenantId = id;

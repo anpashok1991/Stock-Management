@@ -32,7 +32,6 @@ internal class CreateCustomerCommandHandler : IRequestHandler<CreateCustomerComm
             LastName = request.LastName,
             Email = request.Email,
             Phone = request.Phone,
-            TenantId = _tenant.TenantId ?? Guid.Empty,
             CreatedAt = DateTime.UtcNow
         };
 

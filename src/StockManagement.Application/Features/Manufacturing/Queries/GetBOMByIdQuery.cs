@@ -60,8 +60,6 @@ internal class GetBOMByIdQueryHandler : IRequestHandler<GetBOMByIdQuery, Result<
         if (bom == null)
             return Result<BOMDetailDto>.Failure("Bill of Materials not found");
 
-        var tenantId = _tenant.TenantId ?? Guid.Empty;
-
         var dto = new BOMDetailDto
         {
             Id = bom.Id,
@@ -87,7 +85,7 @@ internal class GetBOMByIdQueryHandler : IRequestHandler<GetBOMByIdQuery, Result<
                 IsOptional = bi.IsOptional,
                 Remarks = bi.Remarks,
                 AvailableStock = _context.StockItems
-                    .Where(s => s.ProductId == bi.RawMaterialId && s.TenantId == tenantId)
+                    .Where(s => s.ProductId == bi.RawMaterialId)
                     .Select(s => s.Quantity)
                     .FirstOrDefault()
             }).ToList()

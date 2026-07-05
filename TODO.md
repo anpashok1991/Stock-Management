@@ -1,0 +1,1 @@
+ERROR: Cannot read image.png (this model does not support image input). Inform the user.

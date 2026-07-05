@@ -30,10 +30,9 @@ internal class AdjustStockCommandHandler : IRequestHandler<AdjustStockCommand, R
 
     public async Task<Result> Handle(AdjustStockCommand request, CancellationToken ct)
     {
-        var tenantId = _tenant.TenantId ?? Guid.Empty;
-
+        // Rely on DbContext query filters (CurrentTenantId) instead of explicitly matching TenantId here
         var stockItem = await _context.StockItems
-            .FirstOrDefaultAsync(s => s.ProductId == request.ProductId && s.WarehouseId == request.WarehouseId && s.TenantId == tenantId, ct);
+            .FirstOrDefaultAsync(s => s.ProductId == request.ProductId && s.WarehouseId == request.WarehouseId, ct);
 
         if (stockItem == null)
         {
@@ -41,8 +40,7 @@ internal class AdjustStockCommandHandler : IRequestHandler<AdjustStockCommand, R
             {
                 ProductId = request.ProductId,
                 WarehouseId = request.WarehouseId,
-                Quantity = 0,
-                TenantId = tenantId
+                Quantity = 0
             };
             await _context.StockItems.AddAsync(stockItem, ct);
         }
@@ -73,8 +71,7 @@ internal class AdjustStockCommandHandler : IRequestHandler<AdjustStockCommand, R
             Quantity = Math.Abs(delta),
             Reference = request.Reference,
             Notes = request.Notes,
-            OccurredAt = DateTime.UtcNow,
-            TenantId = tenantId
+            OccurredAt = DateTime.UtcNow
         };
 
         await _context.StockMovements.AddAsync(movement, ct);

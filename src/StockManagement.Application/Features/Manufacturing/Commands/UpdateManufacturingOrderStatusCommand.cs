@@ -43,12 +43,10 @@ internal class UpdateManufacturingOrderStatusCommandHandler : IRequestHandler<Up
 
         if (request.Status == ManufacturingStatus.Completed)
         {
-            var tenantId = _tenant.TenantId ?? Guid.Empty;
-
             foreach (var item in order.Items)
             {
                 var stockItem = await _context.StockItems
-                    .FirstOrDefaultAsync(s => s.ProductId == item.RawMaterialId && s.TenantId == tenantId, ct);
+                    .FirstOrDefaultAsync(s => s.ProductId == item.RawMaterialId, ct);
 
                 if (stockItem == null || stockItem.Quantity < item.QuantityConsumed)
                 {
@@ -69,13 +67,12 @@ internal class UpdateManufacturingOrderStatusCommandHandler : IRequestHandler<Up
                     BeforeQuantity = beforeQty,
                     AfterQuantity = stockItem.Quantity,
                     ManufacturingNumber = order.ManufacturingNumber,
-                    TenantId = tenantId,
                     OccurredAt = DateTime.UtcNow
                 });
             }
 
             var finishedStockItem = await _context.StockItems
-                .FirstOrDefaultAsync(s => s.ProductId == order.FinishedProductId && s.TenantId == tenantId, ct);
+                .FirstOrDefaultAsync(s => s.ProductId == order.FinishedProductId, ct);
 
             if (finishedStockItem != null)
             {
@@ -92,7 +89,6 @@ internal class UpdateManufacturingOrderStatusCommandHandler : IRequestHandler<Up
                     BeforeQuantity = beforeQty,
                     AfterQuantity = finishedStockItem.Quantity,
                     ManufacturingNumber = order.ManufacturingNumber,
-                    TenantId = tenantId,
                     OccurredAt = DateTime.UtcNow
                 });
             }

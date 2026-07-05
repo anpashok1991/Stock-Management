@@ -1,12 +1,23 @@
-﻿<Router AppAssembly="typeof(Program).Assembly">
+﻿@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
+<Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
             <NotAuthorized>
-                <MudContainer Class="mt-16">
-                    <MudText Typo="Typo.h5">Please login to access this page.</MudText>
-                    <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4">Login</MudButton>
+                <MudContainer Class="d-flex align-center justify-center" Style="min-height: 80vh;">
+                    <MudPaper Class="pa-8" Elevation="3">
+                        <MudText Typo="Typo.h5" Class="mb-4">Please sign in to continue</MudText>
+                        <MudText Typo="Typo.body1" Class="mb-4">You need to be logged in to access this page.</MudText>
+                        <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary">Go to Login</MudButton>
+                    </MudPaper>
                 </MudContainer>
             </NotAuthorized>
+            <Authorizing>
+                <MudContainer Class="d-flex align-center justify-center" Style="min-height: 80vh;">
+                    <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+                </MudContainer>
+            </Authorizing>
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>

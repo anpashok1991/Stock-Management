@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.AspNetCore.Components.Authorization
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -8,14 +9,60 @@
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="StockManagement.Web.styles.css" />
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#594AE2" />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 <body>
-    <Routes />
+    <CascadingAuthenticationState>
+        <Routes @rendermode="InteractiveServer" />
+    </CascadingAuthenticationState>
     <script src="_framework/blazor.web.js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script>
+        window.submitLoginForm = function (email, password, rememberMe, returnUrl) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/Account/Login';
+            form.style.display = 'none';
+
+            const e = document.createElement('input');
+            e.name = 'Email';
+            e.value = email || '';
+            form.appendChild(e);
+
+            const p = document.createElement('input');
+            p.name = 'Password';
+            p.value = password || '';
+            form.appendChild(p);
+
+            // If an antiforgery hidden input exists on the page (CsrfToken component), reuse its value
+            const existingTokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (existingTokenInput && existingTokenInput.value) {
+                const t = document.createElement('input');
+                t.name = '__RequestVerificationToken';
+                t.value = existingTokenInput.value;
+                form.appendChild(t);
+            }
+
+            if (typeof rememberMe !== 'undefined') {
+                const r = document.createElement('input');
+                r.name = 'RememberMe';
+                r.value = rememberMe ? 'true' : 'false';
+                form.appendChild(r);
+            }
+
+            if (returnUrl) {
+                const u = document.createElement('input');
+                u.name = 'ReturnUrl';
+                u.value = returnUrl;
+                form.appendChild(u);
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+        };
+    </script>
 </body>
 </html>

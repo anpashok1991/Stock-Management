@@ -31,7 +31,7 @@ internal class CreateManufacturingOrderCommandHandler : IRequestHandler<CreateMa
 
     public async Task<Result<Guid>> Handle(CreateManufacturingOrderCommand request, CancellationToken ct)
     {
-        var tenantId = _tenant.TenantId ?? Guid.Empty;
+        // Rely on AppDbContext.CurrentTenantId and global query filters rather than explicit tenant matching
 
         var finishedProduct = await _context.Products.FindAsync(new object[] { request.FinishedProductId }, ct);
         if (finishedProduct == null)
@@ -62,7 +62,6 @@ internal class CreateManufacturingOrderCommandHandler : IRequestHandler<CreateMa
             PackagingCost = request.PackagingCost,
             Remarks = request.Remarks,
             Status = ManufacturingStatus.Draft,
-            TenantId = tenantId,
             CreatedBy = _tenant.TenantName,
             CreatedAt = DateTime.UtcNow
         };
@@ -78,7 +77,7 @@ internal class CreateManufacturingOrderCommandHandler : IRequestHandler<CreateMa
                 quantityRequired += wastageQty;
 
                 var stockItem = await _context.StockItems
-                    .FirstOrDefaultAsync(s => s.ProductId == bomItem.RawMaterialId && s.TenantId == tenantId, ct);
+                    .FirstOrDefaultAsync(s => s.ProductId == bomItem.RawMaterialId, ct);
 
                 var availableStock = stockItem?.Quantity ?? 0;
                 var unitCost = bomItem.RawMaterial?.CostPrice ?? 0;
@@ -96,8 +95,7 @@ internal class CreateManufacturingOrderCommandHandler : IRequestHandler<CreateMa
                     TotalCost = itemTotalCost,
                     AvailableStock = availableStock,
                     IsOptional = bomItem.IsOptional,
-                    Remarks = bomItem.Remarks,
-                    TenantId = tenantId
+                    Remarks = bomItem.Remarks
                 });
             }
         }

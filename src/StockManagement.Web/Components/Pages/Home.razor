@@ -1,5 +1,6 @@
 ﻿@page "/"
 @rendermode InteractiveServer
+@attribute [Authorize]
 @using StockManagement.Application.Features.Dashboard.Queries
 @using MediatR
 @inject IMediator Mediator

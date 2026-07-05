@@ -1,0 +1,25 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider IsDarkMode="_isDarkMode" Theme="_theme" />
+
+<MudLayout>
+    <MudMainContent Class="login-main-content">
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _isDarkMode = true;
+
+    private MudTheme _theme = new()
+    {
+        Palette = new Palette()
+        {
+            Primary = "#7C6FFF",
+            Secondary = "#546E7A",
+            AppbarBackground = "#1E1E2D",
+            Background = "#121212",
+            Surface = "#1E1E2D",
+        }
+    };
+}

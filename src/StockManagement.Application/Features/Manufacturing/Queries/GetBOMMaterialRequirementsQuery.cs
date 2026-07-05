@@ -47,8 +47,6 @@ internal class GetBOMMaterialRequirementsQueryHandler : IRequestHandler<GetBOMMa
         if (bom == null)
             return Result<List<BOMMaterialRequirementDto>>.Failure("Bill of Materials not found");
 
-        var tenantId = _tenant.TenantId ?? Guid.Empty;
-
         var requirements = bom.Items.Select(bi =>
         {
             var quantityRequired = bi.QuantityRequired * request.Quantity;
@@ -56,7 +54,7 @@ internal class GetBOMMaterialRequirementsQueryHandler : IRequestHandler<GetBOMMa
             var quantityWithWastage = quantityRequired + wastageQty;
 
             var availableStock = _context.StockItems
-                .Where(s => s.ProductId == bi.RawMaterialId && s.TenantId == tenantId)
+                .Where(s => s.ProductId == bi.RawMaterialId)
                 .Select(s => s.Quantity)
                 .FirstOrDefault();
 

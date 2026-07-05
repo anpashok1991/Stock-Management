@@ -40,8 +40,6 @@ internal class CreateBOMCommandHandler : IRequestHandler<CreateBOMCommand, Resul
 
     public async Task<Result<Guid>> Handle(CreateBOMCommand request, CancellationToken ct)
     {
-        var tenantId = _tenant.TenantId ?? Guid.Empty;
-
         var bom = new BillOfMaterial
         {
             Name = request.Name,
@@ -50,23 +48,21 @@ internal class CreateBOMCommandHandler : IRequestHandler<CreateBOMCommand, Resul
             Status = request.Status,
             Description = request.Description,
             Notes = request.Notes,
-            TenantId = tenantId,
             CreatedBy = _tenant.TenantName,
             CreatedAt = DateTime.UtcNow
         };
 
         foreach (var item in request.Items)
         {
-            bom.Items.Add(new BillOfMaterialItem
-            {
-                RawMaterialId = item.RawMaterialId,
-                QuantityRequired = item.QuantityRequired,
-                Unit = item.Unit,
-                WastagePercentage = item.WastagePercentage,
-                IsOptional = item.IsOptional,
-                Remarks = item.Remarks,
-                TenantId = tenantId
-            });
+                bom.Items.Add(new BillOfMaterialItem
+                {
+                    RawMaterialId = item.RawMaterialId,
+                    QuantityRequired = item.QuantityRequired,
+                    Unit = item.Unit,
+                    WastagePercentage = item.WastagePercentage,
+                    IsOptional = item.IsOptional,
+                    Remarks = item.Remarks
+                });
         }
 
         await _context.BillOfMaterials.AddAsync(bom, ct);

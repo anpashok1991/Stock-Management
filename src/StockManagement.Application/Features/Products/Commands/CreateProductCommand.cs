@@ -63,7 +63,6 @@ internal class CreateProductCommandHandler : IRequestHandler<CreateProductComman
             CategoryId = request.CategoryId,
             BrandId = request.BrandId,
             SupplierId = request.SupplierId,
-            TenantId = _tenant.TenantId ?? Guid.Empty,
             CreatedAt = DateTime.UtcNow
         };
 

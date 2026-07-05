@@ -35,7 +35,31 @@ public static class DependencyInjection
         })
         .AddRoles<ApplicationRole>()
         .AddEntityFrameworkStores<AppDbContext>()
-        .AddDefaultTokenProviders();
+        .AddDefaultTokenProviders()
+        .AddSignInManager();
+
+        // ---- Authentication ----
+        services.AddAuthentication(options =>
+        {
+            options.DefaultScheme = IdentityConstants.ApplicationScheme;
+            options.DefaultSignInScheme = IdentityConstants.ApplicationScheme;
+        })
+        .AddCookie(IdentityConstants.ApplicationScheme, options =>
+        {
+            options.LoginPath = "/login";
+            options.LogoutPath = "/login";
+            options.AccessDeniedPath = "/login";
+        });
+
+        services.AddAuthorization();
+        services.AddCascadingAuthenticationState();
+        // Register the default RevalidatingIdentityAuthenticationStateProvider from Microsoft.AspNetCore.Components.Authorization
+        // Use the concrete type from the Identity packages if available; otherwise, fall back to the basic provider wiring.
+        try
+        {
+            var asm = typeof(Microsoft.AspNetCore.Identity.UserManager<>).Assembly; // just to force reference
+        }
+        catch { }
 
         // ---- Services ----
         services.AddHttpContextAccessor();

@@ -50,6 +50,36 @@ internal class GetDashboardStatsQueryHandler : IRequestHandler<GetDashboardStats
         _tenant = tenant;
     }
 
+    private async Task<List<TopProductDto>> GetTopProductsAsync(IQueryable<Domain.Entities.Product> productsQuery, CancellationToken ct)
+    {
+        // Get top product ids and basic info
+        var top = await productsQuery
+            .OrderByDescending(p => p.StockQuantity)
+            .Take(5)
+            .Select(p => new { p.Id, p.Name, Sold = p.OrderItems.Count })
+            .ToListAsync(ct);
+
+        var ids = top.Select(t => t.Id).ToList();
+
+        // Fetch order item totals for these products and aggregate on client (SQLite doesn't support SUM(decimal) server-side)
+        var orderItems = await _context.OrderItems
+            .Where(oi => ids.Contains(oi.ProductId))
+            .Select(oi => new { oi.ProductId, oi.LineTotal })
+            .ToListAsync(ct);
+
+        var grouped = orderItems.GroupBy(oi => oi.ProductId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.LineTotal));
+
+        var result = top.Select(t => new TopProductDto
+        {
+            Name = t.Name,
+            Sold = t.Sold,
+            Revenue = grouped.TryGetValue(t.Id, out var rev) ? rev : 0m
+        }).ToList();
+
+        return result;
+    }
+
     public async Task<Result<DashboardDto>> Handle(GetDashboardStatsQuery request, CancellationToken ct)
     {
         var today = DateTime.UtcNow.Date;
@@ -68,9 +98,16 @@ internal class GetDashboardStatsQueryHandler : IRequestHandler<GetDashboardStats
         var todayOrders = await ordersQuery.CountAsync(o => o.CreatedAt >= today, ct);
         var pendingOrders = await ordersQuery.CountAsync(o => o.Status == Domain.Enums.OrderStatus.Pending || o.Status == Domain.Enums.OrderStatus.Confirmed, ct);
         var deliveredOrders = await ordersQuery.CountAsync(o => o.Status == Domain.Enums.OrderStatus.Delivered, ct);
-        var totalRevenue = await ordersQuery.SumAsync(o => o.GrandTotal, ct);
-        var todayRevenue = await ordersQuery.Where(o => o.CreatedAt >= today).SumAsync(o => o.GrandTotal, ct);
-        var monthlyRevenue = await ordersQuery.Where(o => o.CreatedAt >= monthStart).SumAsync(o => o.GrandTotal, ct);
+        // SQLite provider does not support aggregate Sum on decimal on server side.
+        // Load the scalar values and aggregate on the client to avoid NotSupportedException.
+        var totalRevenueValues = await ordersQuery.Select(o => o.GrandTotal).ToListAsync(ct);
+        var totalRevenue = totalRevenueValues.Sum();
+
+        var todayRevenueValues = await ordersQuery.Where(o => o.CreatedAt >= today).Select(o => o.GrandTotal).ToListAsync(ct);
+        var todayRevenue = todayRevenueValues.Sum();
+
+        var monthlyRevenueValues = await ordersQuery.Where(o => o.CreatedAt >= monthStart).Select(o => o.GrandTotal).ToListAsync(ct);
+        var monthlyRevenue = monthlyRevenueValues.Sum();
 
         var dashboard = new DashboardDto
         {
@@ -95,16 +132,7 @@ internal class GetDashboardStatsQueryHandler : IRequestHandler<GetDashboardStats
                     CreatedAt = o.CreatedAt
                 })
                 .ToListAsync(ct),
-            TopProducts = await productsQuery
-                .OrderByDescending(p => p.StockQuantity)
-                .Take(5)
-                .Select(p => new TopProductDto
-                {
-                    Name = p.Name,
-                    Sold = p.OrderItems.Count,
-                    Revenue = p.OrderItems.Sum(oi => oi.LineTotal)
-                })
-                .ToListAsync(ct)
+            TopProducts = await GetTopProductsAsync(productsQuery, ct)
         };
 
         return Result<DashboardDto>.Success(dashboard);

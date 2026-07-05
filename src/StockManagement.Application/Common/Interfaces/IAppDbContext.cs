@@ -43,5 +43,11 @@ public interface IAppDbContext
     DbSet<ManufacturingTransaction> ManufacturingTransactions { get; }
     DbSet<ManufacturingCost> ManufacturingCosts { get; }
 
+    /// <summary>
+    /// The currently active tenant id for the request. Implementations may set this from middleware.
+    /// Use Guid.Empty when there is no active tenant.
+    /// </summary>
+    Guid CurrentTenantId { get; set; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

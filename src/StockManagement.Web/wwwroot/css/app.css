@@ -51,5 +51,29 @@ body {
     top: 0.5rem;
 }
 
- MudCard { transition: transform 0.2s; }
- MudCard:hover { transform: translateY(-4px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+MudCard { transition: transform 0.2s; }
+MudCard:hover { transform: translateY(-4px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+.login-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #121212 0%, #1E1E2D 100%);
+}
+
+.login-paper {
+    width: 100%;
+    max-width: 400px;
+    border-radius: 16px;
+    background: #1E1E2D;
+}
+
+.login-header {
+    text-align: center;
+}
+
+.login-main-content {
+    padding: 0 !important;
+    background: transparent;
+}

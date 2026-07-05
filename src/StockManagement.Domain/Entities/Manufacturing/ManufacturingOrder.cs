@@ -1,4 +1,5 @@
 using StockManagement.Domain.Common;
+using StockManagement.Domain.Entities.Inventory;
 using StockManagement.Domain.Enums;
 
 namespace StockManagement.Domain.Entities.Manufacturing;
@@ -19,6 +20,7 @@ public class ManufacturingOrder : TenantEntity
     public decimal PackagingCost { get; set; }
     public decimal EstimatedProductCost { get; set; }
     public Guid? WarehouseId { get; set; }
+    public Warehouse? Warehouse { get; set; }
     public string? Remarks { get; set; }
 
     public ICollection<ManufacturingOrderItem> Items { get; set; } = new List<ManufacturingOrderItem>();

@@ -25,5 +25,17 @@
     <MudText Typo="Typo.caption" Class="px-4 mud-text-secondary">SETTINGS</MudText>
 
     <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
-    <MudNavLink Href="/login" Icon="@Icons.Material.Filled.Login">Login</MudNavLink>
+    <form method="post" action="Account/Logout" id="logoutForm">
+        <CsrfToken />
+        <MudNavLink Href="" Icon="@Icons.Material.Filled.Logout" OnClick="SubmitLogout">Logout</MudNavLink>
+    </form>
 </MudNavMenu>
+
+@code {
+    private async Task SubmitLogout()
+    {
+        await JS.InvokeVoidAsync("document.getElementById('logoutForm').submit()");
+    }
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+}
