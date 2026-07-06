@@ -1,19 +1,47 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using StockManagement.Domain.Entities.Identity
 @using StockManagement.Web.Services
+@using MudBlazor
+@inject AuthenticationStateProvider AuthState
+@inject UserManager<ApplicationUser> UserManager
 @inject ThemeService ThemeService
 @inject TenantInitializer TenantInitializer
+@inject ISnackbar _snackbar
+
+<MudThemeProvider IsDarkMode="ThemeService.IsDarkMode" Theme="ThemeService.Theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
 <MudLayout>
     <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" Title="Toggle sidebar" />
         <MudSpacer />
         <MudText Typo="Typo.h6">Stock Management ERP</MudText>
         <MudSpacer />
         <MudIconButton Icon="@(ThemeService.IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                       Color="Color.Inherit" OnClick="ToggleTheme" />
-        <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" />
-        <MudAvatar Color="Color.Primary">A</MudAvatar>
+                       Color="Color.Inherit" OnClick="ToggleTheme" Title="@(ThemeService.IsDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode")" />
+        <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" Title="Notifications" />
+        <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" FullWidth="false">
+            <ActivatorContent>
+                <MudAvatar Color="Color.Primary" Style="cursor:pointer;" Class="ml-2" Title="Profile">A</MudAvatar>
+            </ActivatorContent>
+            <ChildContent>
+                <MudMenuItem Icon="@Icons.Material.Filled.Person" Disabled="true">
+                    <div>
+                        <MudText Typo="Typo.body2">@_displayName</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@_displayEmail</MudText>
+                    </div>
+                </MudMenuItem>
+                <MudDivider />
+                <MudMenuItem Icon="@Icons.Material.Filled.Upload" OnClick="UploadPhoto">Upload Photo</MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout" Href="/Account/Logout">Logout</MudMenuItem>
+            </ChildContent>
+        </MudMenu>
     </MudAppBar>
 
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2" Width="260px">
@@ -59,14 +87,39 @@
     private bool _drawerOpen = true;
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
-    private void ToggleTheme() => ThemeService.ToggleTheme();
+
+    private void ToggleTheme()
+    {
+        ThemeService.ToggleTheme();
+        StateHasChanged();
+    }
+
+    private async Task UploadPhoto()
+    {
+        _snackbar.Add("Photo upload will be available in a future update.", Severity.Info);
+    }
 
     private bool _initialized;
+    private string _displayName = "";
+    private string _displayEmail = "";
 
     protected override async Task OnInitializedAsync()
     {
+        ThemeService.OnChange += StateHasChanged;
         try
         {
+            var authState = await AuthState.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(authState.User);
+            if (user != null)
+            {
+                _displayName = $"{user.FirstName} {user.LastName}".Trim();
+                _displayEmail = user.Email ?? "";
+            }
+            else
+            {
+                _displayEmail = authState.User.Identity?.Name ?? "";
+            }
+
             await TenantInitializer.InitializeAsync();
         }
         catch
@@ -75,4 +128,10 @@
         }
         _initialized = true;
     }
+
+    public void Dispose()
+    {
+        ThemeService.OnChange -= StateHasChanged;
+    }
+
 }

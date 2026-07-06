@@ -1,4 +1,5 @@
 @page "/inventory"
+@attribute [Authorize]
 @using MediatR
 @using StockManagement.Application.Features.Inventory.Queries
 @using StockManagement.Application.Features.Inventory.Commands
@@ -13,8 +14,7 @@
 <MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
     <MudText Typo="Typo.h4">Inventory</MudText>
     <MudSpacer />
-    <MudSwitch @bind-Checked="_lowStockOnly" Label="Low Stock Only" Color="Color.Warning"
-               OnChanged="LoadStock" />
+    <MudSwitch Checked="_lowStockOnly" CheckedChanged="@(EventCallback.Factory.Create<bool>(this, ToggleLowStock))" Label="Low Stock Only" Color="Color.Warning" />
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                OnClick="ShowAdjustDialog">Adjust Stock</MudButton>
 </MudStack>
@@ -124,6 +124,12 @@
         if (result.Succeeded && result.Data != null)
             _stockItems = result.Data.Items;
         _loading = false;
+    }
+
+    private async Task ToggleLowStock(bool value)
+    {
+        _lowStockOnly = value;
+        await LoadStock();
     }
 
     private void ShowAdjustDialog()

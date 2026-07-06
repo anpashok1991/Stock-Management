@@ -53,7 +53,7 @@ internal class GetStockQueryHandler : IRequestHandler<GetStockQuery, Result<Page
             query = query.Where(s => s.WarehouseId == request.WarehouseId.Value);
 
         if (request.LowStockOnly)
-            query = query.Where(s => s.Quantity <= (s.Product != null ? s.Product.ReorderLevel : 0));
+            query = query.Where(s => s.Quantity < 5);
 
         var totalCount = await query.CountAsync(ct);
         var items = await query
@@ -70,7 +70,7 @@ internal class GetStockQueryHandler : IRequestHandler<GetStockQuery, Result<Page
                 Quantity = s.Quantity,
                 MinimumStock = s.Product != null ? s.Product.MinimumStock : 0,
                 ReorderLevel = s.Product != null ? s.Product.ReorderLevel : 0,
-                IsLowStock = s.Product != null && s.Quantity <= s.Product.ReorderLevel,
+                IsLowStock = s.Quantity < 5,
                 BatchNumber = s.BatchNumber,
                 ExpiryDate = s.ExpiryDate
             })

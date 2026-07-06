@@ -1,0 +1,94 @@
+@page "/register"
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Admin - Stock Management ERP</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Create Admin User</MudText>
+
+<MudPaper Class="pa-6" Elevation="2" Style="max-width:520px;">
+    <MudText Typo="Typo.body2" Class="mb-4 mud-text-secondary">Create a new administrator account with full access.</MudText>
+
+    <MudTextField @bind-Value="_firstName" Label="First Name" Variant="Variant.Outlined"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" Required="true" />
+    <MudTextField @bind-Value="_lastName" Label="Last Name" Variant="Variant.Outlined"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Person" Required="true"
+                  Class="mt-4" />
+    <MudTextField @bind-Value="_email" Label="Email Address" Variant="Variant.Outlined"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" Required="true"
+                  Class="mt-4" />
+    <MudTextField @bind-Value="_password" Label="Password" InputType="InputType.Password" Variant="Variant.Outlined"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock" Required="true"
+                  Class="mt-4" />
+    <MudTextField @bind-Value="_confirmPassword" Label="Confirm Password" InputType="InputType.Password" Variant="Variant.Outlined"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock" Required="true"
+                  Class="mt-4" />
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+    }
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6 py-3"
+               OnClick="HandleRegister" Disabled="_loading" Size="Size.Large"
+               Style="border-radius:8px;font-weight:600;text-transform:none;font-size:1rem;">
+        @if (_loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> } else { @("Create Admin Account") }
+    </MudButton>
+</MudPaper>
+
+@code {
+    private string _firstName = "";
+    private string _lastName = "";
+    private string _email = "";
+    private string _password = "";
+    private string _confirmPassword = "";
+    private string? _error;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        _error = query["error"];
+    }
+
+    private async Task HandleRegister()
+    {
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName) ||
+            string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "All fields are required.";
+            _loading = false;
+            return;
+        }
+
+        if (_password != _confirmPassword)
+        {
+            _error = "Passwords do not match.";
+            _loading = false;
+            return;
+        }
+
+        if (_password.Length < 6)
+        {
+            _error = "Password must be at least 6 characters.";
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("submitRegisterForm", _email, _password, _firstName, _lastName);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Registration failed: {ex.Message}";
+            _loading = false;
+        }
+    }
+}

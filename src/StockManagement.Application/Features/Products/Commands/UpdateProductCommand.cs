@@ -1,6 +1,9 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using StockManagement.Application.Common.Interfaces;
 using StockManagement.Application.Common.Models;
+using StockManagement.Domain.Entities;
+using StockManagement.Domain.Entities.Inventory;
 using StockManagement.Domain.Enums;
 
 namespace StockManagement.Application.Features.Products.Commands;
@@ -23,11 +26,11 @@ public class UpdateProductCommand : IRequest<Result>
     public DateTime? ExpiryDate { get; set; }
     public string? BatchNumber { get; set; }
     public string? ImageUrl { get; set; }
-    public ProductStatus Status { get; set; }
-    public bool IsFeatured { get; set; }
     public Guid CategoryId { get; set; }
     public Guid? BrandId { get; set; }
     public Guid? SupplierId { get; set; }
+    public ProductStatus Status { get; set; }
+    public bool IsFeatured { get; set; }
 }
 
 internal class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand, Result>
@@ -62,6 +65,34 @@ internal class UpdateProductCommandHandler : IRequestHandler<UpdateProductComman
         product.BrandId = request.BrandId;
         product.SupplierId = request.SupplierId;
         product.ModifiedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync(ct);
+
+        var stockItem = await _context.StockItems
+            .FirstOrDefaultAsync(s => s.ProductId == request.Id, ct);
+
+        if (stockItem != null)
+        {
+            stockItem.Quantity = request.StockQuantity;
+            stockItem.BatchNumber = request.BatchNumber;
+            stockItem.ExpiryDate = request.ExpiryDate;
+        }
+        else if (request.StockQuantity > 0)
+        {
+            var warehouse = await _context.Warehouses.FirstOrDefaultAsync(ct);
+            if (warehouse != null)
+            {
+                stockItem = new StockItem
+                {
+                    ProductId = product.Id,
+                    WarehouseId = warehouse.Id,
+                    Quantity = request.StockQuantity,
+                    BatchNumber = request.BatchNumber,
+                    ExpiryDate = request.ExpiryDate
+                };
+                await _context.StockItems.AddAsync(stockItem, ct);
+            }
+        }
 
         await _context.SaveChangesAsync(ct);
         return Result.Success();

@@ -1,11 +1,132 @@
 @page "/settings"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using StockManagement.Domain.Entities.Identity
+@inject AuthenticationStateProvider AuthState
+@inject UserManager<ApplicationUser> UserManager
+@inject IDialogService Dialog
 @inject ISnackbar Snackbar
 
 <PageTitle>Settings - Stock Management ERP</PageTitle>
 
 <MudText Typo="Typo.h4" Class="mb-4">Settings</MudText>
 
-<MudPaper Class="pa-4" Elevation="2">
-    <MudText Typo="Typo.h6" Class="mb-4">Application Settings</MudText>
-    <MudText Typo="Typo.body2" Class="mud-text-secondary">Settings page coming soon.</MudText>
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudText Typo="Typo.h6" Class="mb-4">Admin Management</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenCreateAdminDialog">
+        Create Admin User
+    </MudButton>
 </MudPaper>
+
+<MudPaper Class="pa-4" Elevation="2">
+    <MudText Typo="Typo.h6" Class="mb-4">All Users</MudText>
+    <MudTable Items="@_users" Hover="true" Breakpoint="Breakpoint.Sm" Striped="true">
+        <HeaderContent>
+            <MudTh>Email</MudTh>
+            <MudTh>Name</MudTh>
+            <MudTh>Roles</MudTh>
+            <MudTh>Active</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Email">@context.Email</MudTd>
+            <MudTd DataLabel="Name">@context.FirstName @context.LastName</MudTd>
+            <MudTd DataLabel="Roles">@string.Join(", ", context.Roles)</MudTd>
+            <MudTd DataLabel="Active">
+                <MudIcon Icon="@(context.IsActive ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                         Color="@(context.IsActive ? Color.Success : Color.Error)" Size="Size.Small" />
+            </MudTd>
+            <MudTd DataLabel="Actions">
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                               OnClick="() => DeleteUser(context)" Disabled="@(context.Email == _currentUserEmail)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private List<UserViewModel> _users = new();
+    private string? _currentUserEmail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        var all = UserManager.Users.OrderBy(u => u.Email).ToList();
+        var list = new List<UserViewModel>();
+        foreach (var user in all)
+        {
+            var roles = await UserManager.GetRolesAsync(user);
+            list.Add(new UserViewModel
+            {
+                Id = user.Id,
+                Email = user.Email ?? "",
+                FirstName = user.FirstName ?? "",
+                LastName = user.LastName ?? "",
+                IsActive = user.IsActive,
+                Roles = roles.ToList()
+            });
+        }
+        _users = list;
+
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        _currentUserEmail = authState.User.Identity?.Name;
+    }
+
+    private async Task DeleteUser(UserViewModel user)
+    {
+        bool? confirmed = await Dialog.ShowMessageBox(
+            "Delete User",
+            $"Are you sure you want to delete user '{user.Email}'? This action cannot be undone.",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (confirmed != true) return;
+
+        var identityUser = await UserManager.FindByEmailAsync(user.Email);
+        if (identityUser == null)
+        {
+            Snackbar.Add("User not found.", Severity.Error);
+            return;
+        }
+
+        var roles = await UserManager.GetRolesAsync(identityUser);
+        if (roles.Any())
+            await UserManager.RemoveFromRolesAsync(identityUser, roles);
+
+        var result = await UserManager.DeleteAsync(identityUser);
+        if (result.Succeeded)
+        {
+            Snackbar.Add($"User '{user.Email}' deleted.", Severity.Success);
+            await LoadUsers();
+            StateHasChanged();
+        }
+        else
+        {
+            Snackbar.Add($"Failed to delete user: {string.Join(", ", result.Errors.Select(e => e.Description))}", Severity.Error);
+        }
+    }
+
+    private async Task OpenCreateAdminDialog()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+        var dialog = await Dialog.ShowAsync<CreateAdminDialog>("Create Admin User", options);
+        await dialog.Result;
+        await LoadUsers();
+        StateHasChanged();
+    }
+
+    private class UserViewModel
+    {
+        public string Id { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public bool IsActive { get; set; }
+        public List<string> Roles { get; set; } = new();
+    }
+}

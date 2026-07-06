@@ -49,6 +49,8 @@ public static class DependencyInjection
             options.LoginPath = "/login";
             options.LogoutPath = "/login";
             options.AccessDeniedPath = "/login";
+            options.ExpireTimeSpan = TimeSpan.FromHours(8);
+            options.SlidingExpiration = true;
         });
 
         services.AddAuthorization();

@@ -28,14 +28,7 @@
     <MudText Typo="Typo.caption" Class="px-4 mud-text-secondary">SETTINGS</MudText>
 
     <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
-    <MudNavLink Href="" Icon="@Icons.Material.Filled.Logout" OnClick="HandleLogout">Logout</MudNavLink>
+    <MudNavLink Href="/Account/Logout" Icon="@Icons.Material.Filled.Logout">Logout</MudNavLink>
 </MudNavMenu>
 
-@code {
-    private async Task HandleLogout()
-    {
-        await JS.InvokeVoidAsync("submitLogoutForm");
-    }
-
-    [Inject] private IJSRuntime JS { get; set; } = default!;
-}
+@code { }

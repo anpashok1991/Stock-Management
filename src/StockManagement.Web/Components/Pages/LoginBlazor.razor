@@ -8,32 +8,35 @@
 <PageTitle>Login - Stock Management ERP</PageTitle>
 
 <MudContainer Class="login-container">
-    <MudPaper Class="login-paper pa-8" Elevation="24">
+    <MudPaper Class="login-paper pa-8">
         <div class="login-header">
-            <MudIcon Icon="@Icons.Material.Filled.Inventory" Size="Size.Large" Color="Color.Primary" Class="mb-2" />
-            <MudText Typo="Typo.h4" Class="mb-1">Stock Management ERP</MudText>
-            <MudText Typo="Typo.body1" Class="mb-1 mud-text-secondary">Sign in to your account</MudText>
+            <MudAvatar Color="Color.Primary" Size="Size.Large" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Inventory" Size="Size.Medium" />
+            </MudAvatar>
+            <MudText Typo="Typo.h5" Class="mb-1" Style="color:#1a1a2e;font-weight:600;">Stock Management ERP</MudText>
+            <MudText Typo="Typo.body2" Class="mb-1" Style="color:#888;">Sign in to your account</MudText>
         </div>
 
-        <MudTextField @bind-Value="_email" Label="Email" Variant="Variant.Outlined" Margin="Margin.Dense"
+        <MudTextField @bind-Value="_email" Label="Email Address" Variant="Variant.Outlined"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" Required="true"
-                      Class="mt-6" />
-        <MudTextField @bind-Value="_password" Label="Password" InputType="InputType.Password" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Class="mt-6" Immediate="true" />
+        <MudTextField @bind-Value="_password" Label="Password" InputType="InputType.Password" Variant="Variant.Outlined"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Lock" Required="true"
-                      Class="mt-4" />
+                      Class="mt-4" Immediate="true" />
 
         @if (!string.IsNullOrEmpty(_error))
         {
             <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
         }
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6 py-2"
-                   OnClick="HandleLogin" Disabled="_loading">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6 py-3"
+                   OnClick="HandleLogin" Disabled="_loading" Size="Size.Large" Style="border-radius:8px;font-weight:600;letter-spacing:0.5px;text-transform:none;font-size:1rem;">
             @if (_loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> } else { @("Sign In") }
         </MudButton>
 
-        <MudDivider Class="my-6" />
-        <MudText Typo="Typo.body2" Align="Align.Center" Class="mud-text-secondary">
+        <MudDivider Class="my-5" />
+        <MudText Typo="Typo.body2" Align="Align.Center" Style="color:#999;font-size:0.85rem;">
+            <MudIcon Icon="@Icons.Material.Filled.Info" Size="Size.Small" Class="mr-1" />
             Demo: admin@stockmgmt.com / Admin@123
         </MudText>
     </MudPaper>
@@ -45,6 +48,19 @@
     private string? _error;
     private bool _loading;
 
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(Nav.Uri);
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        var error = query["error"];
+        if (error == "invalid")
+            _error = "Invalid email or password.";
+        else if (error == "locked")
+            _error = "Account is locked. Please try again later.";
+        else if (!string.IsNullOrEmpty(error))
+            _error = error;
+    }
+
     private async Task HandleLogin()
     {
         _loading = true;
@@ -53,7 +69,7 @@
 
         try
         {
-            await JS.InvokeVoidAsync("submitLoginForm", _email, _password, true, "/");
+            await JS.InvokeVoidAsync("submitLoginForm", _email, _password, false, "/");
         }
         catch (Exception ex)
         {

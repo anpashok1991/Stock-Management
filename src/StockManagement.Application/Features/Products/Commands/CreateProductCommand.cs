@@ -1,8 +1,9 @@
-using AutoMapper;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using StockManagement.Application.Common.Interfaces;
 using StockManagement.Application.Common.Models;
 using StockManagement.Domain.Entities;
+using StockManagement.Domain.Entities.Inventory;
 
 namespace StockManagement.Application.Features.Products.Commands;
 
@@ -68,6 +69,27 @@ internal class CreateProductCommandHandler : IRequestHandler<CreateProductComman
 
         await _context.Products.AddAsync(product, ct);
         await _context.SaveChangesAsync(ct);
+
+        if (request.StockQuantity > 0)
+        {
+            var warehouse = await _context.Warehouses
+                .Where(w => !_tenant.TenantId.HasValue || w.TenantId == _tenant.TenantId.Value)
+                .FirstOrDefaultAsync(ct);
+
+            if (warehouse != null)
+            {
+                var stockItem = new StockItem
+                {
+                    ProductId = product.Id,
+                    WarehouseId = warehouse.Id,
+                    Quantity = request.StockQuantity,
+                    BatchNumber = request.BatchNumber,
+                    ExpiryDate = request.ExpiryDate
+                };
+                await _context.StockItems.AddAsync(stockItem, ct);
+                await _context.SaveChangesAsync(ct);
+            }
+        }
 
         return Result<Guid>.Success(product.Id);
     }
