@@ -2,6 +2,8 @@ bin/
 obj/
 .vs/
 *.user
-*.db
+*.db-shm
+*.db-wal
+*.db-journal
 logs/
 appsettings.Development.json
