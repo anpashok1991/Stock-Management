@@ -9,6 +9,12 @@
 
 <PageTitle>Bill of Materials - Stock Management ERP</PageTitle>
 
+<MudAlert Severity="Severity.Info" Class="mt-4 mb-4" Dismissible="true">
+    <strong>BOM = Bill of Materials</strong> — A recipe that lists all raw materials and quantities needed to manufacture one unit of a finished product.
+    Example: To make 1 "Cooler", you need 1 Cooler Motor, 1 Cooler Blade, and 1 Cooler Body.
+    When you complete a manufacturing order, raw material stock <strong>decreases</strong> and the finished product stock <strong>increases</strong>.
+</MudAlert>
+
 <MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
     <MudText Typo="Typo.h4">Bill of Materials</MudText>
     <MudSpacer />
@@ -346,7 +352,7 @@
                 Name = result.Data.Name,
                 FinishedProductId = result.Data.FinishedProductId,
                 VersionNumber = result.Data.VersionNumber,
-                Status = Enum.Parse<BOMStatus>(result.Data.Status),
+                Status = Enum.TryParse<BOMStatus>(result.Data.Status, out var parsedStatus) ? parsedStatus : BOMStatus.Draft,
                 Description = result.Data.Description,
                 Notes = result.Data.Notes,
                 Items = result.Data.Items.Select(i => new BOMItemRequest

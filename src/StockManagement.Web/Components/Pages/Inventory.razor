@@ -2,9 +2,11 @@
 @using MediatR
 @using StockManagement.Application.Features.Inventory.Queries
 @using StockManagement.Application.Features.Inventory.Commands
+@using StockManagement.Application.Features.Products.Queries
 @using StockManagement.Domain.Enums
 @inject IMediator Mediator
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Inventory - Stock Management ERP</PageTitle>
 
@@ -55,7 +57,22 @@
         <MudText Typo="Typo.h6">Adjust Stock</MudText>
     </TitleContent>
     <DialogContent>
-        <MudSelect @bind-Value="_adjustForm.Type" Label="Movement Type" Required="true">
+        <MudSelect @bind-Value="_selectedProductId" Label="Product" Required="true"
+                   AnchorOrigin="Origin.BottomCenter">
+            @foreach (var p in _products)
+            {
+                <MudSelectItem Value="@p.Id">@p.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect @bind-Value="_selectedWarehouseId" Label="Warehouse" Required="true"
+                   AnchorOrigin="Origin.BottomCenter">
+            @foreach (var w in _warehouses)
+            {
+                <MudSelectItem Value="@w.Id">@w.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect @bind-Value="_adjustForm.Type" Label="Movement Type" Required="true"
+                   AnchorOrigin="Origin.BottomCenter">
             @foreach (var t in Enum.GetValues<StockMovementType>())
             {
                 <MudSelectItem Value="@t">@t</MudSelectItem>
@@ -72,13 +89,31 @@
 
 @code {
     private List<StockDto> _stockItems = new();
+    private List<ProductDto> _products = new();
+    private List<WarehouseDto> _warehouses = new();
     private bool _loading = true;
     private bool _lowStockOnly;
     private bool _showDialog;
+    private Guid _selectedProductId;
+    private Guid _selectedWarehouseId;
 
     private AdjustStockCommand _adjustForm = new();
 
-    protected override async Task OnInitializedAsync() => await LoadStock();
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadStock(), LoadLookups());
+    }
+
+    private async Task LoadLookups()
+    {
+        var productsResult = await Mediator.Send(new GetProductsQuery { PageSize = 999 });
+        if (productsResult.Succeeded && productsResult.Data != null)
+            _products = productsResult.Data.Items;
+
+        var warehousesResult = await Mediator.Send(new GetWarehousesQuery());
+        if (warehousesResult.Succeeded && warehousesResult.Data != null)
+            _warehouses = warehousesResult.Data;
+    }
 
     private async Task LoadStock()
     {
@@ -92,6 +127,8 @@
     private void ShowAdjustDialog()
     {
         _adjustForm = new AdjustStockCommand();
+        _selectedProductId = Guid.Empty;
+        _selectedWarehouseId = Guid.Empty;
         _showDialog = true;
     }
 
@@ -99,11 +136,13 @@
     {
         try
         {
-            if (_stockItems.Any())
+            if (_selectedProductId == Guid.Empty || _selectedWarehouseId == Guid.Empty)
             {
-                _adjustForm.ProductId = _stockItems.First().ProductId;
-                _adjustForm.WarehouseId = _stockItems.First().WarehouseId;
+                Snackbar.Add("Please select a product and warehouse.", Severity.Warning);
+                return;
             }
+            _adjustForm.ProductId = _selectedProductId;
+            _adjustForm.WarehouseId = _selectedWarehouseId;
             var result = await Mediator.Send(_adjustForm);
             if (result.Succeeded)
             {

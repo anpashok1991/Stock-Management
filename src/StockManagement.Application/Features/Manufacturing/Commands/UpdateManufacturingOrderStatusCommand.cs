@@ -43,20 +43,33 @@ internal class UpdateManufacturingOrderStatusCommandHandler : IRequestHandler<Up
 
         if (request.Status == ManufacturingStatus.Completed)
         {
+            // Deduct raw materials from product stock (check against Product.StockQuantity)
             foreach (var item in order.Items)
             {
-                var stockItem = await _context.StockItems
-                    .FirstOrDefaultAsync(s => s.ProductId == item.RawMaterialId, ct);
+                var rawProduct = await _context.Products.FindAsync(new object[] { item.RawMaterialId }, ct);
+                var available = rawProduct?.StockQuantity ?? 0;
 
-                if (stockItem == null || stockItem.Quantity < item.QuantityConsumed)
+                if (available < item.QuantityConsumed)
                 {
                     if (item.IsOptional) continue;
-                    return Result.Failure($"Insufficient stock for {item.RawMaterial?.Name ?? "raw material"}. Available: {stockItem?.Quantity ?? 0}, Required: {item.QuantityConsumed}");
+                    return Result.Failure($"Insufficient stock for {item.RawMaterial?.Name ?? "raw material"}. Available in Products: {available}, Required: {item.QuantityConsumed}");
                 }
 
-                var beforeQty = stockItem.Quantity;
-                stockItem.Quantity -= (int)item.QuantityConsumed;
-                stockItem.ModifiedAt = DateTime.UtcNow;
+                // Reduce product-level stock (this is what Products page shows)
+                if (rawProduct != null)
+                {
+                    rawProduct.StockQuantity -= (int)item.QuantityConsumed;
+                    rawProduct.ModifiedAt = DateTime.UtcNow;
+                }
+
+                // Also update StockItem if one exists (for warehouse tracking)
+                var stockItem = await _context.StockItems
+                    .FirstOrDefaultAsync(s => s.ProductId == item.RawMaterialId, ct);
+                if (stockItem != null)
+                {
+                    stockItem.Quantity -= (int)item.QuantityConsumed;
+                    stockItem.ModifiedAt = DateTime.UtcNow;
+                }
 
                 _context.ManufacturingTransactions.Add(new Domain.Entities.Manufacturing.ManufacturingTransaction
                 {
@@ -64,21 +77,29 @@ internal class UpdateManufacturingOrderStatusCommandHandler : IRequestHandler<Up
                     ProductId = item.RawMaterialId,
                     Type = ManufacturingTransactionType.ConsumedInManufacturing,
                     Quantity = (int)item.QuantityConsumed,
-                    BeforeQuantity = beforeQty,
-                    AfterQuantity = stockItem.Quantity,
+                    BeforeQuantity = available,
+                    AfterQuantity = rawProduct?.StockQuantity ?? 0,
                     ManufacturingNumber = order.ManufacturingNumber,
                     OccurredAt = DateTime.UtcNow
                 });
             }
 
-            var finishedStockItem = await _context.StockItems
-                .FirstOrDefaultAsync(s => s.ProductId == order.FinishedProductId, ct);
-
-            if (finishedStockItem != null)
+            // Add finished product stock
+            var finishedProduct = await _context.Products.FindAsync(new object[] { order.FinishedProductId }, ct);
+            if (finishedProduct != null)
             {
-                var beforeQty = finishedStockItem.Quantity;
-                finishedStockItem.Quantity += order.Quantity;
-                finishedStockItem.ModifiedAt = DateTime.UtcNow;
+                var beforeQty = finishedProduct.StockQuantity;
+                finishedProduct.StockQuantity += order.Quantity;
+                finishedProduct.ModifiedAt = DateTime.UtcNow;
+
+                // Also update StockItem if one exists
+                var finishedStockItem = await _context.StockItems
+                    .FirstOrDefaultAsync(s => s.ProductId == order.FinishedProductId, ct);
+                if (finishedStockItem != null)
+                {
+                    finishedStockItem.Quantity += order.Quantity;
+                    finishedStockItem.ModifiedAt = DateTime.UtcNow;
+                }
 
                 _context.ManufacturingTransactions.Add(new Domain.Entities.Manufacturing.ManufacturingTransaction
                 {
@@ -87,17 +108,10 @@ internal class UpdateManufacturingOrderStatusCommandHandler : IRequestHandler<Up
                     Type = ManufacturingTransactionType.Manufactured,
                     Quantity = order.Quantity,
                     BeforeQuantity = beforeQty,
-                    AfterQuantity = finishedStockItem.Quantity,
+                    AfterQuantity = finishedProduct.StockQuantity,
                     ManufacturingNumber = order.ManufacturingNumber,
                     OccurredAt = DateTime.UtcNow
                 });
-            }
-
-            var finishedProduct = await _context.Products.FindAsync(new object[] { order.FinishedProductId }, ct);
-            if (finishedProduct != null)
-            {
-                finishedProduct.StockQuantity += order.Quantity;
-                finishedProduct.ModifiedAt = DateTime.UtcNow;
             }
         }
 

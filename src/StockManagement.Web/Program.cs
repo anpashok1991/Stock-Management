@@ -22,25 +22,20 @@ builder.Services.AddControllers();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddMudServices();
+builder.Services.AddMudServices(config =>
+{
+    // Needed because Blazor Server SSR-to-interactive transition creates
+    // a brief overlap of two MudPopoverProvider instances, which throws
+    // by default and terminates the circuit.
+    config.PopoverOptions.ThrowOnDuplicateProvider = false;
+});
+// Register CircuitTenantState for both HTTP requests and Blazor circuits
+// (TenantInitializer sets the tenant on first use)
+builder.Services.AddScoped<CircuitTenantState>();
+builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<CircuitTenantState>());
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<ThemeService>();
-
-// Override ITenantContext with CircuitTenantState for Blazor circuits (scoped to circuit lifetime)
-// This ensures tenant state persists across SignalR messages in a Blazor Server circuit
-builder.Services.AddScoped<CircuitTenantState>();
-builder.Services.AddScoped<ITenantContext>(sp =>
-{
-    var http = sp.GetService<IHttpContextAccessor>();
-    // During HTTP request: use TenantContext (resolves from headers/claims)
-    if (http?.HttpContext != null)
-    {
-        return new StockManagement.Infrastructure.Services.TenantContext(http);
-    }
-    // During Blazor circuit: use CircuitTenantState (persists in circuit scope)
-    return sp.GetRequiredService<CircuitTenantState>();
-});
 
 // Enable detailed Blazor circuit errors
 builder.Services.Configure<CircuitOptions>(options => { options.DetailedErrors = true; });

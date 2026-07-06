@@ -25,7 +25,7 @@ public class AccountController : Controller
     }
 
     [HttpPost("Login")]
-    [ValidateAntiForgeryToken]
+    [IgnoreAntiforgeryToken]
     public async Task<IActionResult> Login(LoginRequest model)
     {
         if (model == null || string.IsNullOrWhiteSpace(model.Email) || string.IsNullOrWhiteSpace(model.Password))
@@ -51,7 +51,7 @@ public class AccountController : Controller
     }
 
     [HttpPost("Logout")]
-    [ValidateAntiForgeryToken]
+    [IgnoreAntiforgeryToken]
     public async Task<IActionResult> Logout()
     {
         await _signInManager.SignOutAsync();

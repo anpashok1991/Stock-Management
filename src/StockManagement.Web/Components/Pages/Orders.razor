@@ -2,13 +2,20 @@
 @using MediatR
 @using StockManagement.Application.Features.Orders.Queries
 @using StockManagement.Application.Features.Orders.Commands
+@using StockManagement.Application.Features.Products.Queries
+@using StockManagement.Application.Features.Customers.Queries
 @using StockManagement.Domain.Enums
 @inject IMediator Mediator
 @inject ISnackbar Snackbar
 
 <PageTitle>Orders - Stock Management ERP</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Orders</MudText>
+<MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Orders</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="ShowNewOrderDialog">New Order (Sell Products)</MudButton>
+</MudStack>
 
 <MudGrid Class="mb-4">
     <MudItem xs="12" sm="4">
@@ -74,11 +81,136 @@
     </PagerContent>
 </MudTable>
 
+<MudDialog @bind-IsVisible="_showNewDialog" MaxWidth="MaxWidth.Large">
+    <TitleContent>
+        <MudText Typo="Typo.h6">New Order (Sell Products)</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudSelect T="Guid" Value="_newOrder.CustomerId" ValueChanged="@((Guid val) => { _newOrder.CustomerId = val; StateHasChanged(); })"
+                           Label="Customer"
+                           ToStringFunc="@(id => _customers.FirstOrDefault(c => c.Id == id)?.FullName ?? string.Empty)">
+                    <MudSelectItem Value="@Guid.Empty">Walk-in Customer</MudSelectItem>
+                    @foreach (var c in _customers)
+                    {
+                        <MudSelectItem Value="@c.Id">@c.FullName (@c.Phone)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect @bind-Value="_newOrder.PaymentMode" Label="Payment Mode">
+                    @foreach (var m in Enum.GetValues<PaymentMode>())
+                    {
+                        <MudSelectItem Value="@m">@m</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_newOrder.CouponCode" Label="Coupon Code (Optional)" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_newOrder.Notes" Label="Notes (Optional)" />
+            </MudItem>
+        </MudGrid>
+
+        <MudDivider Class="my-3" />
+        <MudText Typo="Typo.h6" Class="mb-2">Products</MudText>
+
+        @if (_orderItems.Any())
+        {
+            <MudTable Items="_orderItems.Select((item, idx) => new { item, idx })" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Product</MudTh>
+                    <MudTh>Qty</MudTh>
+                    <MudTh>Unit Price</MudTh>
+                    <MudTh>Tax %</MudTh>
+                    <MudTh>Discount</MudTh>
+                    <MudTh>Line Total</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>
+                        <MudSelect @bind-Value="context.item.ProductId" Dense="true"
+                                   ToStringFunc="@(id => _products.FirstOrDefault(p => p.Id == id)?.Name ?? string.Empty)">
+                            @foreach (var p in _products)
+                            {
+                                <MudSelectItem Value="@p.Id" Disabled="@(p.StockQuantity < 1)">
+                                    @p.Name (@p.Sku) — Stock: @p.StockQuantity
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudTd>
+                    <MudTd><MudNumericField @bind-Value="context.item.Quantity" Min="1" Dense="true" /></MudTd>
+                    <MudTd>
+                        @{
+                            var prod = _products.FirstOrDefault(p => p.Id == context.item.ProductId);
+                            context.item.UnitPrice = prod?.SellingPrice ?? 0;
+                        }
+                        <MudNumericField @bind-Value="context.item.UnitPrice" Min="0" Dense="true" />
+                    </MudTd>
+                    <MudTd><MudNumericField @bind-Value="context.item.TaxRate" Min="0" Max="100" Dense="true" /></MudTd>
+                    <MudTd><MudNumericField @bind-Value="context.item.Discount" Min="0" Dense="true" /></MudTd>
+                    <MudTd>
+                        @{
+                            var lineTotal = context.item.Quantity * context.item.UnitPrice
+                                + (context.item.Quantity * context.item.UnitPrice * context.item.TaxRate / 100m)
+                                - context.item.Discount;
+                        }
+                        <MudText>₹ @lineTotal.ToString("N2")</MudText>
+                    </MudTd>
+                    <MudTd>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                       OnClick="() => RemoveOrderItem(context.idx)" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+
+            <MudDivider Class="my-2" />
+            <MudGrid>
+                <MudItem xs="12" sm="3">
+                    <MudText><strong>Sub Total:</strong> ₹ @_orderItems.Sum(i => i.Quantity * i.UnitPrice).ToString("N2")</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudText><strong>Tax:</strong> ₹ @_orderItems.Sum(i => i.Quantity * i.UnitPrice * i.TaxRate / 100m).ToString("N2")</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudText><strong>Discount:</strong> ₹ @_orderItems.Sum(i => i.Discount).ToString("N2")</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="3">
+                    <MudText><strong>Grand Total:</strong> ₹ @(
+                        _orderItems.Sum(i => i.Quantity * i.UnitPrice)
+                        + _orderItems.Sum(i => i.Quantity * i.UnitPrice * i.TaxRate / 100m)
+                        - _orderItems.Sum(i => i.Discount)
+                    ).ToString("N2")</MudText>
+                </MudItem>
+            </MudGrid>
+        }
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="AddOrderItem" Class="mt-2">Add Product</MudButton>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="ResetOrderForm">Reset</MudButton>
+        <MudButton OnClick="() => _showNewDialog = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitOrder"
+                   Disabled="@(!_orderItems.Any(i => i.ProductId != Guid.Empty && i.Quantity > 0))">
+            Create Order &amp; Reduce Stock
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private List<OrderDto> _orders = new();
+    private List<CustomerDto> _customers = new();
+    private List<ProductDto> _products = new();
     private bool _loading = true;
     private string? _search;
     private OrderStatus? _statusFilter;
+    private bool _showNewDialog;
+
+    private CreateOrderCommand _newOrder = new();
+    private List<OrderItemRequest> _orderItems = new();
 
     protected override async Task OnInitializedAsync() => await LoadOrders();
 
@@ -89,6 +221,68 @@
         if (result.Succeeded && result.Data != null)
             _orders = result.Data.Items;
         _loading = false;
+    }
+
+    private async Task ShowNewOrderDialog()
+    {
+        _newOrder = new CreateOrderCommand { PaymentMode = PaymentMode.Cash };
+        _orderItems = new List<OrderItemRequest>();
+
+        var custResult = await Mediator.Send(new GetCustomersQuery { PageSize = 200 });
+        if (custResult.Succeeded && custResult.Data != null)
+            _customers = custResult.Data.Items;
+
+        var prodResult = await Mediator.Send(new GetProductsQuery { PageSize = 200 });
+        if (prodResult.Succeeded && prodResult.Data != null)
+            _products = prodResult.Data.Items;
+
+        _showNewDialog = true;
+    }
+
+    private void ResetOrderForm()
+    {
+        _newOrder = new CreateOrderCommand { PaymentMode = PaymentMode.Cash };
+        _orderItems = new List<OrderItemRequest>();
+    }
+
+    private void AddOrderItem()
+    {
+        _orderItems.Add(new OrderItemRequest { Quantity = 1 });
+    }
+
+    private void RemoveOrderItem(int index)
+    {
+        if (index >= 0 && index < _orderItems.Count)
+            _orderItems.RemoveAt(index);
+    }
+
+    private async Task SubmitOrder()
+    {
+        try
+        {
+            _newOrder.Items = _orderItems.Where(i => i.ProductId != Guid.Empty && i.Quantity > 0).ToList();
+            if (!_newOrder.Items.Any())
+            {
+                Snackbar.Add("Add at least one product with quantity", Severity.Warning);
+                return;
+            }
+
+            var result = await Mediator.Send(_newOrder);
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Order created! Product stock has been reduced.", Severity.Success);
+                _showNewDialog = false;
+                await LoadOrders();
+            }
+            else
+            {
+                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Exception: {ex.Message}", Severity.Error);
+        }
     }
 
     private async Task UpdateStatus(Guid orderId, OrderStatus status)

@@ -1,8 +1,14 @@
 ﻿@using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
+@using StockManagement.Web.Services
+@inject ThemeService ThemeService
 <Router AppAssembly="typeof(Program).Assembly" @rendermode="InteractiveServer">
     <Found Context="routeData">
+        <MudThemeProvider IsDarkMode="ThemeService.IsDarkMode" Theme="ThemeService.Theme" />
+        <MudPopoverProvider />
+        <MudDialogProvider />
+        <MudSnackbarProvider />
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
             <NotAuthorized>
                 <MudContainer Class="d-flex align-center justify-center" Style="min-height: 80vh;">

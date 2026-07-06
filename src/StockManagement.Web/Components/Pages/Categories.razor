@@ -1,0 +1,151 @@
+@page "/categories"
+@using MediatR
+@using StockManagement.Application.Features.Products.Queries
+@using StockManagement.Application.Features.Products.Commands
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<PageTitle>Categories - Stock Management ERP</PageTitle>
+
+<MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Categories</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="ShowAddDialog">Add Category</MudButton>
+</MudStack>
+
+<MudTable Items="_categories" Dense="true" Hover="true" Loading="_loading" RowsPerPage="15">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Description</MudTh>
+        <MudTh>Products</MudTh>
+        <MudTh>Order</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Description">@context.Description</MudTd>
+        <MudTd DataLabel="Products">@context.ProductCount</MudTd>
+        <MudTd DataLabel="Order">@context.DisplayOrder</MudTd>
+        <MudTd DataLabel="Status">
+            <MudChip Color="@(context.IsActive ? Color.Success : Color.Default)" Size="Size.Small">
+                @(context.IsActive ? "Active" : "Inactive")
+            </MudChip>
+        </MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditCategory(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => DeleteCategory(context.Id)" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<MudDialog @bind-IsVisible="_showDialog" MaxWidth="MaxWidth.Small">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_editingId.HasValue ? "Edit Category" : "New Category")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_form.Name" Label="Category Name" Required="true" />
+        <MudTextField @bind-Value="_form.Description" Label="Description" Lines="2" />
+        <MudNumericField @bind-Value="_form.DisplayOrder" Label="Display Order" Min="0" />
+        <MudSwitch @bind-Checked="_form.IsActive" Label="Active" Color="Color.Success" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showDialog = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveCategory">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<CategoryDto> _categories = new();
+    private bool _loading = true;
+    private bool _showDialog;
+    private Guid? _editingId;
+    private CreateCategoryCommand _form = new();
+
+    protected override async Task OnInitializedAsync() => await LoadCategories();
+
+    private async Task LoadCategories()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new GetCategoriesQuery());
+        if (result.Succeeded && result.Data != null)
+            _categories = result.Data;
+        _loading = false;
+    }
+
+    private void ShowAddDialog()
+    {
+        _editingId = null;
+        _form = new CreateCategoryCommand { IsActive = true };
+        _showDialog = true;
+    }
+
+    private void EditCategory(CategoryDto dto)
+    {
+        _editingId = dto.Id;
+        _form = new CreateCategoryCommand
+        {
+            Name = dto.Name,
+            Description = dto.Description,
+            IsActive = dto.IsActive,
+            DisplayOrder = dto.DisplayOrder
+        };
+        _showDialog = true;
+    }
+
+    private async Task SaveCategory()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_form.Name))
+            {
+                Snackbar.Add("Category name is required", Severity.Warning);
+                return;
+            }
+
+            if (_editingId.HasValue)
+            {
+                var result = await Mediator.Send(new UpdateCategoryCommand
+                {
+                    Id = _editingId.Value,
+                    Name = _form.Name,
+                    Description = _form.Description,
+                    IsActive = _form.IsActive,
+                    DisplayOrder = _form.DisplayOrder
+                });
+                if (result.Succeeded) Snackbar.Add("Category updated!", Severity.Success);
+                else Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            }
+            else
+            {
+                var result = await Mediator.Send(_form);
+                if (result.Succeeded) Snackbar.Add("Category created!", Severity.Success);
+                else Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            }
+            _showDialog = false;
+            await LoadCategories();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Exception: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteCategory(Guid id)
+    {
+        var result = await Mediator.Send(new DeleteCategoryCommand { Id = id });
+        if (result.Succeeded)
+        {
+            Snackbar.Add("Category deleted!", Severity.Warning);
+            await LoadCategories();
+        }
+        else
+        {
+            Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+    }
+}

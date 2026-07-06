@@ -97,12 +97,19 @@
                 </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudSelect T="Guid?" Value="_newForm.BillOfMaterialId" ValueChanged="@((Guid? val) => { _newForm.BillOfMaterialId = val; LoadMaterialRequirements(); })"
-                           Label="Bill of Materials (Optional)" Clearable="true"
+                <MudSelect T="Guid?" Value="_newForm.BillOfMaterialId" ValueChanged="@((Guid? val) => { _newForm.BillOfMaterialId = val; if (val.HasValue) LoadMaterialRequirements(); })"
+                           Label="Bill of Materials" Required="true"
                            ToStringFunc="@(id => _boms.FirstOrDefault(b => b.Id == id)?.Name ?? string.Empty)">
-                    @foreach (var b in _boms.Where(b => b.FinishedProductId == _newForm.FinishedProductId))
+                    @if (_boms.Any())
                     {
-                        <MudSelectItem Value="@(b.Id)">@b.Name (v@b.VersionNumber)</MudSelectItem>
+                        @foreach (var b in _boms)
+                        {
+                            <MudSelectItem Value="@((Guid?)b.Id)">@b.Name (v@b.VersionNumber) — @b.FinishedProductName</MudSelectItem>
+                        }
+                    }
+                    else
+                    {
+                        <MudSelectItem Value="@((Guid?)null)">No BOMs available. Create one in Bill of Materials page.</MudSelectItem>
                     }
                 </MudSelect>
             </MudItem>
@@ -174,6 +181,7 @@
         }
     </DialogContent>
     <DialogActions>
+        <MudButton OnClick="ResetForm">Reset</MudButton>
         <MudButton OnClick="() => _showNewDialog = false">Cancel</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitManufacturingOrder"
                    Disabled="@(_materialRequirements.Any(m => m.IsInsufficient) || _newForm.Quantity < 1)">
@@ -272,6 +280,12 @@
             _boms = bomsResult.Data.Items;
 
         _showNewDialog = true;
+    }
+
+    private void ResetForm()
+    {
+        _newForm = new CreateManufacturingOrderCommand { Quantity = 1 };
+        _materialRequirements.Clear();
     }
 
     private async Task LoadMaterialRequirements()
