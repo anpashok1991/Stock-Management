@@ -37,7 +37,6 @@
             p.value = password || '';
             form.appendChild(p);
 
-            // If an antiforgery hidden input exists on the page (CsrfToken component), reuse its value
             const existingTokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
             if (existingTokenInput && existingTokenInput.value) {
                 const t = document.createElement('input');
@@ -58,6 +57,24 @@
                 u.name = 'ReturnUrl';
                 u.value = returnUrl;
                 form.appendChild(u);
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+        };
+
+        window.submitLogoutForm = function () {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/Account/Logout';
+            form.style.display = 'none';
+
+            const existingTokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (existingTokenInput && existingTokenInput.value) {
+                const t = document.createElement('input');
+                t.name = '__RequestVerificationToken';
+                t.value = existingTokenInput.value;
+                form.appendChild(t);
             }
 
             document.body.appendChild(form);

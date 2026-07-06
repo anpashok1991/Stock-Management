@@ -1,5 +1,4 @@
 @page "/inventory"
-@rendermode InteractiveServer
 @using MediatR
 @using StockManagement.Application.Features.Inventory.Queries
 @using StockManagement.Application.Features.Inventory.Commands
@@ -98,17 +97,28 @@
 
     private async Task SubmitAdjust()
     {
-        if (_stockItems.Any())
+        try
         {
-            _adjustForm.ProductId = _stockItems.First().ProductId;
-            _adjustForm.WarehouseId = _stockItems.First().WarehouseId;
+            if (_stockItems.Any())
+            {
+                _adjustForm.ProductId = _stockItems.First().ProductId;
+                _adjustForm.WarehouseId = _stockItems.First().WarehouseId;
+            }
+            var result = await Mediator.Send(_adjustForm);
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Stock adjusted!", Severity.Success);
+                _showDialog = false;
+                await LoadStock();
+            }
+            else
+            {
+                Snackbar.Add($"Error: {string.Join(", ", result.Errors)}", Severity.Error);
+            }
         }
-        var result = await Mediator.Send(_adjustForm);
-        if (result.Succeeded)
+        catch (Exception ex)
         {
-            Snackbar.Add("Stock adjusted!", Severity.Success);
-            _showDialog = false;
-            await LoadStock();
+            Snackbar.Add($"Exception: {ex.Message}", Severity.Error);
         }
     }
 }

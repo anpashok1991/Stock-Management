@@ -1,5 +1,4 @@
 @page "/manufacturing"
-@rendermode InteractiveServer
 @using MediatR
 @using StockManagement.Application.Features.Manufacturing.Queries
 @using StockManagement.Application.Features.Manufacturing.Commands
@@ -296,34 +295,48 @@
 
     private async Task SubmitManufacturingOrder()
     {
-        var result = await Mediator.Send(_newForm);
-        if (result.Succeeded)
+        try
         {
-            Snackbar.Add("Manufacturing order created successfully!", Severity.Success);
-            _showNewDialog = false;
-            await LoadOrders();
+            var result = await Mediator.Send(_newForm);
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Manufacturing order created successfully!", Severity.Success);
+                _showNewDialog = false;
+                await LoadOrders();
+            }
+            else
+            {
+                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            Snackbar.Add($"Exception: {ex.Message}", Severity.Error);
         }
     }
 
     private async Task UpdateStatus(Guid orderId, ManufacturingStatus status)
     {
-        var result = await Mediator.Send(new UpdateManufacturingOrderStatusCommand
+        try
         {
-            ManufacturingOrderId = orderId,
-            Status = status
-        });
-        if (result.Succeeded)
-        {
-            Snackbar.Add(result.Message ?? $"Status updated to {status}", Severity.Success);
-            await LoadOrders();
+            var result = await Mediator.Send(new UpdateManufacturingOrderStatusCommand
+            {
+                ManufacturingOrderId = orderId,
+                Status = status
+            });
+            if (result.Succeeded)
+            {
+                Snackbar.Add(result.Message ?? $"Status updated to {status}", Severity.Success);
+                await LoadOrders();
+            }
+            else
+            {
+                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            }
         }
-        else
+        catch (Exception ex)
         {
-            Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+            Snackbar.Add($"Exception: {ex.Message}", Severity.Error);
         }
     }
 

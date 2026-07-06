@@ -1,4 +1,5 @@
-﻿<MudNavMenu>
+﻿@rendermode InteractiveServer
+<MudNavMenu>
     <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
     <MudNavLink Href="/store" Icon="@Icons.Material.Filled.Store">Store</MudNavLink>
 
@@ -25,16 +26,13 @@
     <MudText Typo="Typo.caption" Class="px-4 mud-text-secondary">SETTINGS</MudText>
 
     <MudNavLink Href="/settings" Icon="@Icons.Material.Filled.Settings">Settings</MudNavLink>
-    <form method="post" action="Account/Logout" id="logoutForm">
-        <CsrfToken />
-        <MudNavLink Href="" Icon="@Icons.Material.Filled.Logout" OnClick="SubmitLogout">Logout</MudNavLink>
-    </form>
+    <MudNavLink Href="" Icon="@Icons.Material.Filled.Logout" OnClick="HandleLogout">Logout</MudNavLink>
 </MudNavMenu>
 
 @code {
-    private async Task SubmitLogout()
+    private async Task HandleLogout()
     {
-        await JS.InvokeVoidAsync("document.getElementById('logoutForm').submit()");
+        await JS.InvokeVoidAsync("submitLogoutForm");
     }
 
     [Inject] private IJSRuntime JS { get; set; } = default!;

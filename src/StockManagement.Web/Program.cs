@@ -1,12 +1,15 @@
 using MudBlazor.Services;
 using Serilog;
 using StockManagement.Application;
+using StockManagement.Application.Common.Interfaces;
 using StockManagement.Infrastructure;
 using StockManagement.Infrastructure.Data;
 using StockManagement.Infrastructure.Seed;
 using StockManagement.Web.Components;
 using StockManagement.Web.Services;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Server;
+using Microsoft.AspNetCore.Components.Server.Circuits;
 using System.Net.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,7 +19,6 @@ builder.Host.UseSerilog((context, loggerConfig) =>
     loggerConfig.ReadFrom.Configuration(context.Configuration));
 
 builder.Services.AddControllers();
-builder.Services.AddRazorPages();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -24,7 +26,27 @@ builder.Services.AddMudServices();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<ThemeService>();
-// Tenant circuit handler registration removed; tenant resolved via middleware and request services.
+
+// Override ITenantContext with CircuitTenantState for Blazor circuits (scoped to circuit lifetime)
+// This ensures tenant state persists across SignalR messages in a Blazor Server circuit
+builder.Services.AddScoped<CircuitTenantState>();
+builder.Services.AddScoped<ITenantContext>(sp =>
+{
+    var http = sp.GetService<IHttpContextAccessor>();
+    // During HTTP request: use TenantContext (resolves from headers/claims)
+    if (http?.HttpContext != null)
+    {
+        return new StockManagement.Infrastructure.Services.TenantContext(http);
+    }
+    // During Blazor circuit: use CircuitTenantState (persists in circuit scope)
+    return sp.GetRequiredService<CircuitTenantState>();
+});
+
+// Enable detailed Blazor circuit errors
+builder.Services.Configure<CircuitOptions>(options => { options.DetailedErrors = true; });
+builder.Services.AddScoped<CircuitHandler, CircuitErrorHandler>();
+// Tenant initializer for Blazor server circuits
+builder.Services.AddScoped<StockManagement.Web.Services.TenantInitializer>();
 
 // Antiforgery
 builder.Services.AddAntiforgery();
@@ -55,6 +77,11 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
+}
+else
+{
+    // Show developer exception page in Development so detailed stack traces appear in the console/browser
+    app.UseDeveloperExceptionPage();
 }
 
 app.UseHttpsRedirection();

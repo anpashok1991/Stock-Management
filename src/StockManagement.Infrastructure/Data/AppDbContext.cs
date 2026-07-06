@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using StockManagement.Application.Common.Interfaces;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using StockManagement.Domain.Common;
 using StockManagement.Domain.Entities;
 using StockManagement.Domain.Entities.Identity;
@@ -12,15 +14,19 @@ namespace StockManagement.Infrastructure.Data;
 public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, string>, IAppDbContext
 {
     private readonly ITenantContext? _tenantContext;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ILogger<AppDbContext> _logger;
 
     // Mutable per-request tenant id used by query filters. Set this from middleware each HTTP request.
     // Use Guid.Empty to indicate no tenant selected.
     public Guid CurrentTenantId { get; set; }
 
-    public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext? tenantContext = null)
+    public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext? tenantContext, IHttpContextAccessor httpContextAccessor, ILogger<AppDbContext> logger)
         : base(options)
     {
         _tenantContext = tenantContext;
+        _httpContextAccessor = httpContextAccessor;
+        _logger = logger;
         CurrentTenantId = tenantContext?.TenantId ?? Guid.Empty;
     }
 
@@ -311,13 +317,18 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        // Debug logging: write current tenant into a debug message so runtime can show tenant during tests
+        // Log current tenant and user for diagnostics
         try
         {
             var tenantVal = CurrentTenantId;
-            System.Diagnostics.Debug.WriteLine($"AppDbContext.SaveChangesAsync CurrentTenantId={tenantVal}");
+            var user = _httpContextAccessor?.HttpContext?.User;
+            var userId = user?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? user?.Identity?.Name ?? "(anonymous)";
+            _logger?.LogInformation("SaveChanges starting. TenantId={TenantId} User={User}", tenantVal, userId);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            try { _logger?.LogWarning(ex, "Failed to write debug tenant info"); } catch { }
+        }
         foreach (var entry in ChangeTracker.Entries<AuditableEntity>())
         {
             switch (entry.State)
@@ -347,6 +358,16 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
             }
         }
 
-        return await base.SaveChangesAsync(cancellationToken);
+        try
+        {
+            var result = await base.SaveChangesAsync(cancellationToken);
+            try { _logger?.LogInformation("SaveChanges completed. TenantId={TenantId} Entries={Entries}", CurrentTenantId, ChangeTracker.Entries().Count()); } catch { }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "SaveChanges failed. TenantId={TenantId}", CurrentTenantId);
+            throw;
+        }
     }
 }

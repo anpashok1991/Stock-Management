@@ -1,5 +1,4 @@
 @page "/bom"
-@rendermode InteractiveServer
 @using MediatR
 @using StockManagement.Application.Features.Manufacturing.Queries
 @using StockManagement.Application.Features.Manufacturing.Commands
@@ -278,44 +277,51 @@
 
     private async Task SaveBOM()
     {
-        if (editingBOM != null)
+        try
         {
-            var updateCommand = new UpdateBOMCommand
+            if (editingBOM != null)
             {
-                Id = editingBOM.Id,
-                Name = _bomForm.Name,
-                FinishedProductId = _bomForm.FinishedProductId,
-                VersionNumber = _bomForm.VersionNumber,
-                Status = _bomForm.Status,
-                Description = _bomForm.Description,
-                Notes = _bomForm.Notes,
-                Items = _bomForm.Items
-            };
-            var result = await Mediator.Send(updateCommand);
-            if (result.Succeeded)
-            {
-                Snackbar.Add("BOM updated successfully!", Severity.Success);
-                _showNewDialog = false;
-                await LoadBOMs();
+                var updateCommand = new UpdateBOMCommand
+                {
+                    Id = editingBOM.Id,
+                    Name = _bomForm.Name,
+                    FinishedProductId = _bomForm.FinishedProductId,
+                    VersionNumber = _bomForm.VersionNumber,
+                    Status = _bomForm.Status,
+                    Description = _bomForm.Description,
+                    Notes = _bomForm.Notes,
+                    Items = _bomForm.Items
+                };
+                var result = await Mediator.Send(updateCommand);
+                if (result.Succeeded)
+                {
+                    Snackbar.Add("BOM updated successfully!", Severity.Success);
+                    _showNewDialog = false;
+                    await LoadBOMs();
+                }
+                else
+                {
+                    Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+                }
             }
             else
             {
-                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+                var result = await Mediator.Send(_bomForm);
+                if (result.Succeeded)
+                {
+                    Snackbar.Add("BOM created successfully!", Severity.Success);
+                    _showNewDialog = false;
+                    await LoadBOMs();
+                }
+                else
+                {
+                    Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+                }
             }
         }
-        else
+        catch (Exception ex)
         {
-            var result = await Mediator.Send(_bomForm);
-            if (result.Succeeded)
-            {
-                Snackbar.Add("BOM created successfully!", Severity.Success);
-                _showNewDialog = false;
-                await LoadBOMs();
-            }
-            else
-            {
-                Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
-            }
+            Snackbar.Add($"Exception: {ex.Message}", Severity.Error);
         }
     }
 

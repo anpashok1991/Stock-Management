@@ -1,5 +1,4 @@
 @page "/products"
-@rendermode InteractiveServer
 @using MediatR
 @using StockManagement.Application.Features.Products.Commands
 @using StockManagement.Application.Features.Products.Queries
@@ -12,6 +11,8 @@
 <MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
     <MudText Typo="Typo.h4">Products</MudText>
     <MudSpacer />
+    <button type="button" @onclick="TestClick" style="padding: 8px 16px; background-color: #ff6b6b; color: white; border: none; cursor: pointer;">HTML TEST</button>
+    <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="TestClick">MUD TEST</MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                OnClick="ShowAddDialog">Add Product</MudButton>
 </MudStack>
@@ -82,79 +83,145 @@
 
     private CreateProductCommand _form = new();
 
-    protected override async Task OnInitializedAsync() => await LoadProducts();
+    private void TestClick()
+    {
+        Snackbar.Add("TEST BUTTON CLICKED!", Severity.Warning);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Snackbar.Add("Page Initialized", Severity.Info);
+            await LoadProducts();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Init Error: {ex.Message}", Severity.Error);
+            Console.WriteLine($"OnInitializedAsync Exception: {ex}");
+        }
+    }
 
     private async Task LoadProducts()
     {
-        _loading = true;
-        var result = await Mediator.Send(new GetProductsQuery { SearchTerm = _search, PageSize = 100 });
-        if (result.Succeeded && result.Data != null)
-            _products = result.Data.Items;
-        _loading = false;
+        try
+        {
+            _loading = true;
+            var result = await Mediator.Send(new GetProductsQuery { SearchTerm = _search, PageSize = 100 });
+            if (result.Succeeded && result.Data != null)
+                _products = result.Data.Items;
+            else if (!result.Succeeded)
+                Snackbar.Add($"Load Error: {string.Join(", ", result.Errors)}", Severity.Error);
+            _loading = false;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Load Exception: {ex.Message}", Severity.Error);
+            _loading = false;
+        }
     }
 
     private void ShowAddDialog()
     {
-        _editingId = null;
-        _form = new CreateProductCommand();
-        _showDialog = true;
+        try
+        {
+            Console.WriteLine("ShowAddDialog called");
+            _editingId = null;
+            _form = new CreateProductCommand();
+            _showDialog = true;
+            StateHasChanged();
+            Snackbar.Add("Add Product dialog opened", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ShowAddDialog Exception: {ex}");
+            Snackbar.Add($"Dialog Error: {ex.Message}", Severity.Error);
+        }
     }
 
     private void EditProduct(ProductDto dto)
     {
-        _editingId = dto.Id;
-        _form = new CreateProductCommand
+        try
         {
-            Name = dto.Name,
-            Sku = dto.Sku,
-            CostPrice = dto.CostPrice,
-            SellingPrice = dto.SellingPrice,
-            StockQuantity = dto.StockQuantity,
-            TaxRate = dto.TaxRate,
-            Description = dto.Description,
-            CategoryId = dto.CategoryId
-        };
-        _showDialog = true;
+            _editingId = dto.Id;
+            _form = new CreateProductCommand
+            {
+                Name = dto.Name,
+                Sku = dto.Sku,
+                CostPrice = dto.CostPrice,
+                SellingPrice = dto.SellingPrice,
+                StockQuantity = dto.StockQuantity,
+                TaxRate = dto.TaxRate,
+                Description = dto.Description,
+                CategoryId = dto.CategoryId
+            };
+            _showDialog = true;
+            Snackbar.Add($"Editing product: {dto.Name}", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Edit Error: {ex.Message}", Severity.Error);
+        }
     }
 
     private void CloseDialog() => _showDialog = false;
 
     private async Task SaveProduct()
     {
-        if (_editingId.HasValue)
+        try
         {
-            var update = new UpdateProductCommand
+            if (_editingId.HasValue)
             {
-                Id = _editingId.Value,
-                Name = _form.Name,
-                Sku = _form.Sku,
-                CostPrice = _form.CostPrice,
-                SellingPrice = _form.SellingPrice,
-                StockQuantity = _form.StockQuantity,
-                TaxRate = _form.TaxRate,
-                Description = _form.Description,
-                CategoryId = _form.CategoryId,
-                Status = ProductStatus.Active
-            };
-            var result = await Mediator.Send(update);
-            if (result.Succeeded) Snackbar.Add("Product updated!", Severity.Success);
+                var update = new UpdateProductCommand
+                {
+                    Id = _editingId.Value,
+                    Name = _form.Name,
+                    Sku = _form.Sku,
+                    CostPrice = _form.CostPrice,
+                    SellingPrice = _form.SellingPrice,
+                    StockQuantity = _form.StockQuantity,
+                    TaxRate = _form.TaxRate,
+                    Description = _form.Description,
+                    CategoryId = _form.CategoryId,
+                    Status = ProductStatus.Active
+                };
+                var result = await Mediator.Send(update);
+                if (result.Succeeded) Snackbar.Add("Product updated!", Severity.Success);
+                else Snackbar.Add($"Error: {string.Join(", ", result.Errors)}", Severity.Error);
+            }
+            else
+            {
+                var result = await Mediator.Send(_form);
+                if (result.Succeeded) Snackbar.Add("Product created!", Severity.Success);
+                else Snackbar.Add($"Error: {string.Join(", ", result.Errors)}", Severity.Error);
+            }
+            _showDialog = false;
+            await LoadProducts();
         }
-        else
+        catch (Exception ex)
         {
-            var result = await Mediator.Send(_form);
-            if (result.Succeeded) Snackbar.Add("Product created!", Severity.Success);
+            Snackbar.Add($"Exception: {ex.Message}", Severity.Error);
         }
-        _showDialog = false;
-        await LoadProducts();
     }
 
     private async Task DeleteProduct(Guid id)
     {
-        var result = await Mediator.Send(new DeleteProductCommand { Id = id });
-        if (result.Succeeded)
+        try
         {
-            Snackbar.Add("Product deleted!", Severity.Warning);
-            await LoadProducts();
+            var result = await Mediator.Send(new DeleteProductCommand { Id = id });
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Product deleted!", Severity.Warning);
+                await LoadProducts();
+            }
+            else
+            {
+                Snackbar.Add($"Error: {string.Join(", ", result.Errors)}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Exception: {ex.Message}", Severity.Error);
         }
     }
 }

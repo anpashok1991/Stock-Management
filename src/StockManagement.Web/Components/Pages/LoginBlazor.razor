@@ -1,20 +1,14 @@
 @page "/login"
-@rendermode InteractiveServer
 @attribute [AllowAnonymous]
 @layout StockManagement.Web.Components.Layout.LoginLayout
-@using Microsoft.AspNetCore.Identity
-@using StockManagement.Domain.Entities.Identity
-@using System.Net.Http.Json
-@inject UserManager<ApplicationUser> UserManager
-@inject IJSRuntime JS
+@using Microsoft.AspNetCore.Authorization
 @inject NavigationManager Nav
-@using Microsoft.AspNetCore.WebUtilities
+@inject IJSRuntime JS
 
 <PageTitle>Login - Stock Management ERP</PageTitle>
 
 <MudContainer Class="login-container">
     <MudPaper Class="login-paper pa-8" Elevation="24">
-        <CsrfToken />
         <div class="login-header">
             <MudIcon Icon="@Icons.Material.Filled.Inventory" Size="Size.Large" Color="Color.Primary" Class="mb-2" />
             <MudText Typo="Typo.h4" Class="mb-1">Stock Management ERP</MudText>
@@ -50,27 +44,6 @@
     private string _password = "Admin@123";
     private string? _error;
     private bool _loading;
-    private string? _returnUrl;
-
-    protected override void OnInitialized()
-    {
-        var uri = Nav.ToAbsoluteUri(Nav.Uri);
-        if (!string.IsNullOrEmpty(uri.Query))
-        {
-            var q = QueryHelpers.ParseQuery(uri.Query);
-            if (q.TryGetValue("error", out var val))
-            {
-                if (val == "locked")
-                    _error = "Account locked. Try again later.";
-                else if (val == "invalid")
-                    _error = "Invalid email or password.";
-            }
-            if (q.TryGetValue("returnUrl", out var rv))
-            {
-                _returnUrl = rv;
-            }
-        }
-    }
 
     private async Task HandleLogin()
     {
@@ -78,8 +51,14 @@
         _error = null;
         StateHasChanged();
 
-        // Submit a standard browser form so the auth cookie set by the server is applied to the browser.
-        await JS.InvokeVoidAsync("submitLoginForm", _email, _password, true, _returnUrl);
+        try
+        {
+            await JS.InvokeVoidAsync("submitLoginForm", _email, _password, true, "/");
+        }
+        catch (Exception ex)
+        {
+            _error = $"Login failed: {ex.Message}";
+            _loading = false;
+        }
     }
 }
-

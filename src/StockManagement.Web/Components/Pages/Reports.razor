@@ -1,0 +1,77 @@
+@page "/reports"
+@using MediatR
+@using StockManagement.Domain.Enums
+@using StockManagement.Application.Features.Orders.Queries
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<PageTitle>Reports - Stock Management ERP</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Reports</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-4">Revenue Overview</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Coming soon</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-4">Order Summary</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Coming soon</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12">
+        <MudPaper Class="pa-4 mt-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-4">Recent Orders</MudText>
+            <MudTable Items="_orders" Dense="true" Hover="true" Loading="_loading">
+                <HeaderContent>
+                    <MudTh>Order #</MudTh>
+                    <MudTh>Customer</MudTh>
+                    <MudTh>Total</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Date</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Order #">@context.OrderNumber</MudTd>
+                    <MudTd DataLabel="Customer">@context.CustomerName</MudTd>
+                    <MudTd DataLabel="Total">₹ @context.GrandTotal.ToString("N0")</MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip Size="Size.Small" Color="@GetStatusColor(context.Status)">
+                            @context.Status
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Date">@context.CreatedAt.ToString("dd MMM yyyy")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<OrderDto> _orders = new();
+    private bool _loading = true;
+
+    private Color GetStatusColor(OrderStatus status) => status switch
+    {
+        OrderStatus.Delivered => Color.Success,
+        OrderStatus.Cancelled => Color.Error,
+        _ => Color.Warning
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await Mediator.Send(new GetOrdersQuery { PageSize = 20 });
+            if (result.Succeeded && result.Data != null)
+                _orders = result.Data.Items;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading reports: {ex.Message}", Severity.Error);
+        }
+        _loading = false;
+    }
+}
