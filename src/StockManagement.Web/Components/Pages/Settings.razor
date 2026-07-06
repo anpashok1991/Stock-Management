@@ -5,6 +5,7 @@
 @using Microsoft.EntityFrameworkCore
 @using StockManagement.Domain.Entities
 @using StockManagement.Domain.Entities.Identity
+@using StockManagement.Domain.Entities.Inventory
 @using StockManagement.Infrastructure.Data
 @inject AuthenticationStateProvider AuthState
 @inject UserManager<ApplicationUser> UserManager
@@ -33,6 +34,15 @@
     <MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenCreateAdminDialog">
         Create Admin User
+    </MudButton>
+</MudPaper>
+
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudText Typo="Typo.h6" Class="mb-4">Data Cleanup</MudText>
+    <MudText Typo="Typo.body2" Class="mb-4 mud-text-secondary">Remove stock entries for products that no longer exist or are deleted, keeping inventory in sync.</MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+               StartIcon="@Icons.Material.Filled.CleaningServices" OnClick="CleanupOrphanedStock">
+        Delete Orphaned Stock Items
     </MudButton>
 </MudPaper>
 
@@ -167,6 +177,30 @@
         {
             Snackbar.Add($"Failed to delete user: {string.Join(", ", result.Errors.Select(e => e.Description))}", Severity.Error);
         }
+    }
+
+    private async Task CleanupOrphanedStock()
+    {
+        bool? confirmed = await Dialog.ShowMessageBox(
+            "Delete Orphaned Stock",
+            "Remove all stock entries for deleted or non-existent products? This cannot be undone.",
+            yesText: "Clean Up", cancelText: "Cancel");
+
+        if (confirmed != true) return;
+
+        var orphaned = await DbContext.StockItems
+            .Where(s => s.Product == null || s.Product.IsDeleted)
+            .ToListAsync();
+
+        if (!orphaned.Any())
+        {
+            Snackbar.Add("No orphaned stock items found.", Severity.Info);
+            return;
+        }
+
+        DbContext.StockItems.RemoveRange(orphaned);
+        await DbContext.SaveChangesAsync(default);
+        Snackbar.Add($"Deleted {orphaned.Count} orphaned stock item(s).", Severity.Success);
     }
 
     private async Task OpenCreateAdminDialog()
