@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using StockManagement.Application.Common.Interfaces;
 using StockManagement.Application.Common.Models;
 using StockManagement.Domain.Enums;
@@ -42,6 +43,8 @@ public class ProductDto
     public Guid CategoryId { get; set; }
     public string? BrandName { get; set; }
     public Guid? BrandId { get; set; }
+    public string? SupplierName { get; set; }
+    public Guid? SupplierId { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -60,6 +63,7 @@ internal class GetProductsQueryHandler : IRequestHandler<GetProductsQuery, Resul
     {
         var query = _context.Products
             .Where(p => !p.IsDeleted)
+            .Include(p => p.Supplier)
             .AsQueryable();
 
         if (_tenant.TenantId.HasValue)
@@ -124,6 +128,8 @@ internal class GetProductsQueryHandler : IRequestHandler<GetProductsQuery, Resul
                 CategoryId = p.CategoryId,
                 BrandName = p.Brand != null ? p.Brand.Name : null,
                 BrandId = p.BrandId,
+                SupplierName = p.Supplier != null ? p.Supplier.Name : null,
+                SupplierId = p.SupplierId,
                 CreatedAt = p.CreatedAt
             })
             .ToListAsync(ct);

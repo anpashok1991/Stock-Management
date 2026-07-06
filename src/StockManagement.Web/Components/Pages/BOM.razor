@@ -111,28 +111,30 @@
         <MudDivider Class="my-3" />
         <MudText Typo="Typo.h6" Class="mb-2">Raw Materials</MudText>
 
+        <div style="overflow-x: auto;">
         @if (_bomForm.Items.Any())
-        {
-            <MudTable Items="_bomForm.Items.Select((item, index) => new { item, index })" Dense="true" Hover="true">
-                <HeaderContent>
-                    <MudTh>Raw Material</MudTh>
-                    <MudTh>Quantity</MudTh>
-                    <MudTh>Unit</MudTh>
-                    <MudTh>Wastage %</MudTh>
-                    <MudTh>Optional</MudTh>
-                    <MudTh>Remarks</MudTh>
-                    <MudTh></MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd>
-                        <MudSelect @bind-Value="context.item.RawMaterialId" Dense="true"
-                                   ToStringFunc="@(id => _rawMaterials.FirstOrDefault(r => r.Id == id)?.Name ?? string.Empty)">
-                            @foreach (var r in _rawMaterials)
-                            {
-                                <MudSelectItem Value="@r.Id">@r.Name (@r.Sku)</MudSelectItem>
-                            }
-                        </MudSelect>
-                    </MudTd>
+            {
+                <MudTable Items="_bomForm.Items.Select((item, index) => new { item, index })" Dense="true" Hover="true" Class="bom-items-table">
+                    <HeaderContent>
+                        <MudTh Style="min-width:240px;">Raw Material</MudTh>
+                        <MudTh Style="min-width:100px;">Quantity</MudTh>
+                        <MudTh Style="min-width:90px;">Unit</MudTh>
+                        <MudTh Style="min-width:90px;">Wastage %</MudTh>
+                        <MudTh Style="min-width:80px;">Optional</MudTh>
+                        <MudTh Style="min-width:140px;">Remarks</MudTh>
+                        <MudTh Style="min-width:50px;"></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd Style="min-width:240px;">
+                            <MudSelect @bind-Value="context.item.RawMaterialId" Dense="true"
+                                       ToStringFunc="@(id => _rawMaterials.FirstOrDefault(r => r.Id == id)?.Name ?? string.Empty)"
+                                       FullWidth="true">
+                                @foreach (var r in _rawMaterials)
+                                {
+                                    <MudSelectItem Value="@r.Id">@r.Name (@r.Sku)</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudTd>
                     <MudTd>
                         <MudNumericField @bind-Value="context.item.QuantityRequired" Min="0.01m" Dense="true" />
                     </MudTd>
@@ -158,6 +160,7 @@
 
         <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                    OnClick="AddBOMItem" Class="mt-2">Add Raw Material</MudButton>
+        </div>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="() => _showNewDialog = false">Cancel</MudButton>

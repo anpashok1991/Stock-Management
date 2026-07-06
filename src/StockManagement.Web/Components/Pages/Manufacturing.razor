@@ -65,11 +65,18 @@
             {
                 <MudIconButton Icon="@Icons.Material.Filled.PlayCircle" Size="Size.Small" Color="Color.Warning"
                                OnClick="() => UpdateStatus(context.Id, ManufacturingStatus.InProgress)" Title="Start Production" />
+                <MudIconButton Icon="@Icons.Material.Filled.Cancel" Size="Size.Small" Color="Color.Error"
+                               OnClick="() => UpdateStatus(context.Id, ManufacturingStatus.Cancelled)" Title="Cancel" />
             }
             @if (context.Status == ManufacturingStatus.InProgress)
             {
                 <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success"
                                OnClick="() => UpdateStatus(context.Id, ManufacturingStatus.Completed)" Title="Complete" />
+            }
+            @if (context.Status == ManufacturingStatus.Cancelled || context.Status == ManufacturingStatus.Completed)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="() => DeleteOrder(context.Id)" Title="Delete" />
             }
             <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Default"
                            OnClick="() => ViewOrder(context.Id)" Title="View" />
@@ -87,7 +94,7 @@
     <DialogContent>
         <MudGrid>
             <MudItem xs="12" sm="6">
-                <MudSelect T="Guid" Value="_newForm.FinishedProductId" ValueChanged="@((Guid val) => { _newForm.FinishedProductId = val; _newForm.BillOfMaterialId = null; _materialRequirements.Clear(); StateHasChanged(); })"
+                <MudSelect T="Guid" Value="_newForm.FinishedProductId" ValueChanged="@((Guid val) => { _newForm.FinishedProductId = val; _newForm.BillOfMaterialId = null; _materialRequirements.Clear(); _availableBOMs = _boms.Where(b => b.FinishedProductId == val).ToList(); StateHasChanged(); })"
                            Label="Finished Product" Required="true"
                            ToStringFunc="@(id => _products.FirstOrDefault(p => p.Id == id)?.Name ?? string.Empty)">
                     @foreach (var p in _products)
@@ -100,16 +107,20 @@
                 <MudSelect T="Guid?" Value="_newForm.BillOfMaterialId" ValueChanged="@((Guid? val) => { _newForm.BillOfMaterialId = val; if (val.HasValue) LoadMaterialRequirements(); })"
                            Label="Bill of Materials" Required="true"
                            ToStringFunc="@(id => _boms.FirstOrDefault(b => b.Id == id)?.Name ?? string.Empty)">
-                    @if (_boms.Any())
+                    @if (_newForm.FinishedProductId == Guid.Empty)
                     {
-                        @foreach (var b in _boms)
+                        <MudSelectItem Value="@((Guid?)null)">Select a finished product first</MudSelectItem>
+                    }
+                    else if (_availableBOMs.Any())
+                    {
+                        @foreach (var b in _availableBOMs)
                         {
-                            <MudSelectItem Value="@((Guid?)b.Id)">@b.Name (v@b.VersionNumber) — @b.FinishedProductName</MudSelectItem>
+                            <MudSelectItem Value="@((Guid?)b.Id)">@b.Name (v@b.VersionNumber)</MudSelectItem>
                         }
                     }
                     else
                     {
-                        <MudSelectItem Value="@((Guid?)null)">No BOMs available. Create one in Bill of Materials page.</MudSelectItem>
+                        <MudSelectItem Value="@((Guid?)null)">No BOMs for this product</MudSelectItem>
                     }
                 </MudSelect>
             </MudItem>
@@ -254,6 +265,7 @@
     private ManufacturingOrderDetailDto? _viewOrder;
 
     private CreateManufacturingOrderCommand _newForm = new();
+    private List<BOMDto> _availableBOMs = new();
 
     protected override async Task OnInitializedAsync() => await LoadOrders();
 
@@ -270,6 +282,7 @@
     {
         _newForm = new CreateManufacturingOrderCommand { Quantity = 1 };
         _materialRequirements.Clear();
+        _availableBOMs.Clear();
 
         var productsResult = await Mediator.Send(new GetManufacturableProductsQuery());
         if (productsResult.Succeeded && productsResult.Data != null)
@@ -277,7 +290,10 @@
 
         var bomsResult = await Mediator.Send(new GetBOMsQuery { PageSize = 100 });
         if (bomsResult.Succeeded && bomsResult.Data != null)
+        {
             _boms = bomsResult.Data.Items;
+            _availableBOMs = _boms.Where(b => b.FinishedProductId == _newForm.FinishedProductId).ToList();
+        }
 
         _showNewDialog = true;
     }
@@ -286,6 +302,7 @@
     {
         _newForm = new CreateManufacturingOrderCommand { Quantity = 1 };
         _materialRequirements.Clear();
+        _availableBOMs.Clear();
     }
 
     private async Task LoadMaterialRequirements()

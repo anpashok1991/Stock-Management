@@ -55,6 +55,6 @@ public class AccountController : Controller
     public async Task<IActionResult> Logout()
     {
         await _signInManager.SignOutAsync();
-        return LocalRedirect("/");
+        return LocalRedirect("/login");
     }
 }

@@ -1,0 +1,142 @@
+@page "/suppliers"
+@using MediatR
+@using StockManagement.Application.Features.Products.Queries
+@using StockManagement.Application.Features.Products.Commands
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<PageTitle>Suppliers - Stock Management ERP</PageTitle>
+
+<MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Suppliers</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="ShowAddDialog">Add Supplier</MudButton>
+</MudStack>
+
+<MudTable Items="_suppliers" Dense="true" Hover="true" Loading="_loading" RowsPerPage="15">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Contact Person</MudTh>
+        <MudTh>Email</MudTh>
+        <MudTh>Phone</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Contact">@context.ContactPerson</MudTd>
+        <MudTd DataLabel="Email">@context.Email</MudTd>
+        <MudTd DataLabel="Phone">@context.Phone</MudTd>
+        <MudTd DataLabel="Status">
+            <MudChip Color="@(context.IsActive ? Color.Success : Color.Default)" Size="Size.Small">
+                @(context.IsActive ? "Active" : "Inactive")
+            </MudChip>
+        </MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditSupplier(context)" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => DeleteSupplier(context.Id)" />
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<MudDialog @bind-IsVisible="_showDialog" MaxWidth="MaxWidth.Small">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_editingId.HasValue ? "Edit Supplier" : "New Supplier")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_form.Name" Label="Supplier Name" Required="true" />
+        <MudTextField @bind-Value="_form.ContactPerson" Label="Contact Person" />
+        <MudTextField @bind-Value="_form.Email" Label="Email" />
+        <MudTextField @bind-Value="_form.Phone" Label="Phone" />
+        <MudTextField @bind-Value="_form.Address" Label="Address" Lines="2" />
+        <MudTextField @bind-Value="_form.GstNumber" Label="GST Number" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showDialog = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveSupplier">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<SupplierDto> _suppliers = new();
+    private bool _loading = true;
+    private bool _showDialog;
+    private Guid? _editingId;
+    private CreateSupplierCommand _form = new();
+
+    protected override async Task OnInitializedAsync() => await LoadSuppliers();
+
+    private async Task LoadSuppliers()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new GetSuppliersQuery());
+        if (result.Succeeded && result.Data != null)
+            _suppliers = result.Data;
+        _loading = false;
+    }
+
+    private void ShowAddDialog()
+    {
+        _editingId = null;
+        _form = new CreateSupplierCommand();
+        _showDialog = true;
+    }
+
+    private void EditSupplier(SupplierDto dto)
+    {
+        _editingId = dto.Id;
+        _form = new CreateSupplierCommand
+        {
+            Name = dto.Name,
+            ContactPerson = dto.ContactPerson,
+            Email = dto.Email,
+            Phone = dto.Phone
+        };
+        _showDialog = true;
+    }
+
+    private async Task SaveSupplier()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Name))
+        {
+            Snackbar.Add("Supplier name is required", Severity.Warning);
+            return;
+        }
+        if (_editingId.HasValue)
+        {
+            var result = await Mediator.Send(new UpdateSupplierCommand
+            {
+                Id = _editingId.Value,
+                Name = _form.Name,
+                ContactPerson = _form.ContactPerson,
+                Email = _form.Email,
+                Phone = _form.Phone,
+                Address = _form.Address,
+                GstNumber = _form.GstNumber,
+                IsActive = true
+            });
+            if (result.Succeeded) Snackbar.Add("Supplier updated!", Severity.Success);
+            else Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+        else
+        {
+            var result = await Mediator.Send(_form);
+            if (result.Succeeded) Snackbar.Add("Supplier created!", Severity.Success);
+            else Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        }
+        _showDialog = false;
+        await LoadSuppliers();
+    }
+
+    private async Task DeleteSupplier(Guid id)
+    {
+        var result = await Mediator.Send(new DeleteSupplierCommand { Id = id });
+        if (result.Succeeded) Snackbar.Add("Supplier deleted!", Severity.Warning);
+        else Snackbar.Add(string.Join(", ", result.Errors), Severity.Error);
+        if (result.Succeeded) await LoadSuppliers();
+    }
+}

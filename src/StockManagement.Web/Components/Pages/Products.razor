@@ -53,24 +53,52 @@
     </PagerContent>
 </MudTable>
 
-<MudDialog @bind-IsVisible="_showDialog" MaxWidth="MaxWidth.Medium">
+<MudDialog @bind-IsVisible="_showDialog" MaxWidth="MaxWidth.Large">
     <TitleContent>
         <MudText Typo="Typo.h6">@(_editingId.HasValue ? "Edit Product" : "New Product")</MudText>
     </TitleContent>
     <DialogContent>
-        <MudTextField @bind-Value="_form.Name" Label="Product Name" Required="true" />
-        <MudTextField @bind-Value="_form.Sku" Label="SKU" Required="true" />
-        <MudNumericField @bind-Value="_form.CostPrice" Label="Cost Price (₹)" Min="0" />
-        <MudNumericField @bind-Value="_form.SellingPrice" Label="Selling Price (₹)" Min="0" />
-        <MudNumericField @bind-Value="_form.StockQuantity" Label="Stock Quantity" Min="0" />
-        <MudNumericField @bind-Value="_form.TaxRate" Label="Tax Rate (%)" Min="0" Max="100" />
-        <MudSelect @bind-Value="_form.CategoryId" Label="Category" AnchorOrigin="Origin.BottomCenter">
-            @foreach (var c in _categories)
-            {
-                <MudSelectItem Value="@c.Id">@c.Name</MudSelectItem>
-            }
-        </MudSelect>
-        <MudTextField @bind-Value="_form.Description" Label="Description" Lines="3" />
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_form.Name" Label="Product Name" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_form.Sku" Label="SKU" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField @bind-Value="_form.CostPrice" Label="Cost Price (₹)" Min="0" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField @bind-Value="_form.SellingPrice" Label="Selling Price (₹)" Min="0" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField @bind-Value="_form.StockQuantity" Label="Stock Quantity" Min="0" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudNumericField @bind-Value="_form.TaxRate" Label="Tax Rate (%)" Min="0" Max="100" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect @bind-Value="_form.CategoryId" Label="Category" AnchorOrigin="Origin.BottomCenter"
+                           ToStringFunc="@(id => _categories.FirstOrDefault(c => c.Id == id)?.Name ?? string.Empty)">
+                    @foreach (var c in _categories)
+                    {
+                        <MudSelectItem Value="@c.Id">@c.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect @bind-Value="_form.SupplierId" Label="Supplier (Vendor)" Clearable="true" AnchorOrigin="Origin.BottomCenter"
+                           ToStringFunc="@(id => _suppliers.FirstOrDefault(s => s.Id == id)?.Name ?? string.Empty)">
+                    @foreach (var s in _suppliers)
+                    {
+                        <MudSelectItem Value="@((Guid?)s.Id)">@s.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_form.Description" Label="Description" Lines="3" />
+            </MudItem>
+        </MudGrid>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="CloseDialog">Cancel</MudButton>
@@ -81,6 +109,7 @@
 @code {
     private List<ProductDto> _products = new();
     private List<CategoryDto> _categories = new();
+    private List<SupplierDto> _suppliers = new();
     private bool _loading = true;
     private string? _search;
     private bool _showDialog;
@@ -92,7 +121,7 @@
     {
         try
         {
-            await Task.WhenAll(LoadProducts(), LoadCategories());
+            await Task.WhenAll(LoadProducts(), LoadLookups());
         }
         catch (Exception ex)
         {
@@ -100,11 +129,15 @@
         }
     }
 
-    private async Task LoadCategories()
+    private async Task LoadLookups()
     {
-        var result = await Mediator.Send(new GetCategoriesQuery());
-        if (result.Succeeded && result.Data != null)
-            _categories = result.Data;
+        var catResult = await Mediator.Send(new GetCategoriesQuery());
+        if (catResult.Succeeded && catResult.Data != null)
+            _categories = catResult.Data;
+
+        var supResult = await Mediator.Send(new GetSuppliersQuery());
+        if (supResult.Succeeded && supResult.Data != null)
+            _suppliers = supResult.Data;
     }
 
     private async Task LoadProducts()
@@ -135,27 +168,19 @@
 
     private void EditProduct(ProductDto dto)
     {
-        try
+        _editingId = dto.Id;
+        _form = new CreateProductCommand
         {
-            _editingId = dto.Id;
-            _form = new CreateProductCommand
-            {
-                Name = dto.Name,
-                Sku = dto.Sku,
-                CostPrice = dto.CostPrice,
-                SellingPrice = dto.SellingPrice,
-                StockQuantity = dto.StockQuantity,
-                TaxRate = dto.TaxRate,
-                Description = dto.Description,
-                CategoryId = dto.CategoryId
-            };
-            _showDialog = true;
-            Snackbar.Add($"Editing product: {dto.Name}", Severity.Info);
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Edit Error: {ex.Message}", Severity.Error);
-        }
+            Name = dto.Name,
+            Sku = dto.Sku,
+            CostPrice = dto.CostPrice,
+            SellingPrice = dto.SellingPrice,
+            StockQuantity = dto.StockQuantity,
+            TaxRate = dto.TaxRate,
+            Description = dto.Description,
+            CategoryId = dto.CategoryId
+        };
+        _showDialog = true;
     }
 
     private void CloseDialog() => _showDialog = false;

@@ -46,7 +46,7 @@ internal class GetOrdersQueryHandler : IRequestHandler<GetOrdersQuery, Result<Pa
 
     public async Task<Result<PagedResult<OrderDto>>> Handle(GetOrdersQuery request, CancellationToken ct)
     {
-        var query = _context.Orders.AsQueryable();
+        var query = _context.Orders.Include(o => o.Customer).AsQueryable();
 
         if (_tenant.TenantId.HasValue)
             query = query.Where(o => o.TenantId == _tenant.TenantId.Value);
@@ -80,6 +80,7 @@ internal class GetOrdersQueryHandler : IRequestHandler<GetOrdersQuery, Result<Pa
                 Id = o.Id,
                 OrderNumber = o.OrderNumber,
                 CustomerId = o.CustomerId,
+                CustomerName = o.Customer != null ? o.Customer.FirstName + " " + o.Customer.LastName : null,
                 Status = o.Status,
                 SubTotal = o.SubTotal,
                 TaxAmount = o.TaxAmount,

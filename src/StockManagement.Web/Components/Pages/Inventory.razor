@@ -58,14 +58,16 @@
     </TitleContent>
     <DialogContent>
         <MudSelect @bind-Value="_selectedProductId" Label="Product" Required="true"
-                   AnchorOrigin="Origin.BottomCenter">
+                   AnchorOrigin="Origin.BottomCenter"
+                   ToStringFunc="@(id => _products.FirstOrDefault(p => p.Id == id)?.Name ?? string.Empty)">
             @foreach (var p in _products)
             {
-                <MudSelectItem Value="@p.Id">@p.Name</MudSelectItem>
+                <MudSelectItem Value="@p.Id">@p.Name (@p.Sku)</MudSelectItem>
             }
         </MudSelect>
         <MudSelect @bind-Value="_selectedWarehouseId" Label="Warehouse" Required="true"
-                   AnchorOrigin="Origin.BottomCenter">
+                   AnchorOrigin="Origin.BottomCenter"
+                   ToStringFunc="@(id => _warehouses.FirstOrDefault(w => w.Id == id)?.Name ?? string.Empty)">
             @foreach (var w in _warehouses)
             {
                 <MudSelectItem Value="@w.Id">@w.Name</MudSelectItem>

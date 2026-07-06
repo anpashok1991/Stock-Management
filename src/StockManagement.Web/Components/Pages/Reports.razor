@@ -2,6 +2,8 @@
 @using MediatR
 @using StockManagement.Domain.Enums
 @using StockManagement.Application.Features.Orders.Queries
+@using StockManagement.Application.Features.Products.Queries
+@using StockManagement.Application.Features.Customers.Queries
 @inject IMediator Mediator
 @inject ISnackbar Snackbar
 
@@ -9,69 +11,251 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">Reports</MudText>
 
-<MudGrid>
-    <MudItem xs="12" md="6">
-        <MudPaper Class="pa-4" Elevation="2">
-            <MudText Typo="Typo.h6" Class="mb-4">Revenue Overview</MudText>
-            <MudText Typo="Typo.body2" Class="mud-text-secondary">Coming soon</MudText>
-        </MudPaper>
-    </MudItem>
-    <MudItem xs="12" md="6">
-        <MudPaper Class="pa-4" Elevation="2">
-            <MudText Typo="Typo.h6" Class="mb-4">Order Summary</MudText>
-            <MudText Typo="Typo.body2" Class="mud-text-secondary">Coming soon</MudText>
-        </MudPaper>
-    </MudItem>
-    <MudItem xs="12">
+<MudTabs ActivePanelIndex="_activeTab" Class="mb-4">
+    <MudTabPanel Text="Products by Supplier">
         <MudPaper Class="pa-4 mt-4" Elevation="2">
-            <MudText Typo="Typo.h6" Class="mb-4">Recent Orders</MudText>
-            <MudTable Items="_orders" Dense="true" Hover="true" Loading="_loading">
+            <MudStack Direction="Row" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudSelect @bind-Value="_reportSupplierId" Label="Filter by Supplier" Clearable="true"
+                           AnchorOrigin="Origin.BottomCenter" Class="flex-grow-1" Style="max-width:300px;"
+                           ToStringFunc="@(id => _suppliers.FirstOrDefault(s => s.Id == id)?.Name ?? string.Empty)">
+                    @foreach (var s in _suppliers)
+                    {
+                        <MudSelectItem Value="@((Guid?)s.Id)">@s.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSpacer />
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadSupplierProducts">Load</MudButton>
+            </MudStack>
+            <MudTable Items="_supplierProducts" Dense="true" Hover="true" Loading="_loadingProducts">
+                <HeaderContent>
+                    <MudTh>Product Name</MudTh>
+                    <MudTh>SKU</MudTh>
+                    <MudTh>Supplier</MudTh>
+                    <MudTh>Stock</MudTh>
+                    <MudTh>Selling Price</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Product">@context.Name</MudTd>
+                    <MudTd DataLabel="SKU">@context.Sku</MudTd>
+                    <MudTd DataLabel="Supplier">@(context.SupplierName ?? "-")</MudTd>
+                    <MudTd DataLabel="Stock">@context.StockQuantity</MudTd>
+                    <MudTd DataLabel="Price">₹ @context.SellingPrice.ToString("N2")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudTabPanel>
+    <MudTabPanel Text="Customers">
+        <MudPaper Class="pa-4 mt-4" Elevation="2">
+            <MudTextField @bind-Value="_customerSearch" Placeholder="Search customers..." 
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          DebounceInterval="300" OnDebounceIntervalElapsed="LoadCustomers" Class="mb-4" />
+            <MudTable Items="_customers" Dense="true" Hover="true" Loading="_loadingCustomers">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Email</MudTh>
+                    <MudTh>Phone</MudTh>
+                    <MudTh>Total Spent</MudTh>
+                    <MudTh>Loyalty Points</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Name">@context.FullName</MudTd>
+                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                    <MudTd DataLabel="Phone">@context.Phone</MudTd>
+                    <MudTd DataLabel="Spent">₹ @context.TotalSpent.ToString("N2")</MudTd>
+                    <MudTd DataLabel="Points">@context.LoyaltyPoints</MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
+            </MudTable>
+        </MudPaper>
+    </MudTabPanel>
+    <MudTabPanel Text="Orders Summary">
+        <MudPaper Class="pa-4 mt-4" Elevation="2">
+            <MudGrid Class="mb-4">
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="OrderStatus?" Value="_reportOrderStatus" ValueChanged="@(v => { _reportOrderStatus = v; LoadReportOrders(); })"
+                               Label="Filter by Status" Clearable="true">
+                        @foreach (var s in Enum.GetValues<OrderStatus>())
+                        {
+                            <MudSelectItem Value="@((OrderStatus?)s)">@s</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+            <MudTable Items="_reportOrders" Dense="true" Hover="true" Loading="_loadingOrders">
                 <HeaderContent>
                     <MudTh>Order #</MudTh>
                     <MudTh>Customer</MudTh>
+                    <MudTh>Items</MudTh>
                     <MudTh>Total</MudTh>
+                    <MudTh>Payment</MudTh>
                     <MudTh>Status</MudTh>
                     <MudTh>Date</MudTh>
                 </HeaderContent>
                 <RowTemplate>
                     <MudTd DataLabel="Order #">@context.OrderNumber</MudTd>
-                    <MudTd DataLabel="Customer">@context.CustomerName</MudTd>
+                    <MudTd DataLabel="Customer">@(context.CustomerName ?? "Walk-in")</MudTd>
+                    <MudTd DataLabel="Items">@context.ItemCount</MudTd>
                     <MudTd DataLabel="Total">₹ @context.GrandTotal.ToString("N0")</MudTd>
-                    <MudTd DataLabel="Status">
-                        <MudChip Size="Size.Small" Color="@GetStatusColor(context.Status)">
-                            @context.Status
+                    <MudTd DataLabel="Payment">
+                        <MudChip Size="Size.Small" Color="@(context.PaymentStatus == PaymentStatus.Paid ? Color.Success : Color.Warning)">
+                            @context.PaymentStatus
                         </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip Size="Size.Small" Color="@GetStatusColor(context.Status)">@context.Status</MudChip>
                     </MudTd>
                     <MudTd DataLabel="Date">@context.CreatedAt.ToString("dd MMM yyyy")</MudTd>
                 </RowTemplate>
+                <PagerContent>
+                    <MudTablePager />
+                </PagerContent>
             </MudTable>
         </MudPaper>
-    </MudItem>
-</MudGrid>
+    </MudTabPanel>
+    <MudTabPanel Text="Suppliers">
+        <MudPaper Class="pa-4 mt-4" Elevation="2">
+            <MudTable Items="_reportSuppliers" Dense="true" Hover="true" Loading="_loadingSuppliers">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Contact Person</MudTh>
+                    <MudTh>Email</MudTh>
+                    <MudTh>Phone</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Name">@context.Name</MudTd>
+                    <MudTd DataLabel="Contact">@context.ContactPerson</MudTd>
+                    <MudTd DataLabel="Email">@context.Email</MudTd>
+                    <MudTd DataLabel="Phone">@context.Phone</MudTd>
+                    <MudTd DataLabel="Status">
+                        <MudChip Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Error)">
+                            @(context.IsActive ? "Active" : "Inactive")
+                        </MudChip>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+    </MudTabPanel>
+</MudTabs>
 
 @code {
-    private List<OrderDto> _orders = new();
-    private bool _loading = true;
+    private int _activeTab;
+    private bool _loadingProducts = true;
+    private bool _loadingCustomers = true;
+    private bool _loadingOrders = true;
+    private bool _loadingSuppliers = true;
 
-    private Color GetStatusColor(OrderStatus status) => status switch
-    {
-        OrderStatus.Delivered => Color.Success,
-        OrderStatus.Cancelled => Color.Error,
-        _ => Color.Warning
-    };
+    // Products by Supplier
+    private List<ProductDto> _supplierProducts = new();
+    private List<SupplierDto> _suppliers = new();
+    private Guid? _reportSupplierId;
+
+    // Customers
+    private List<CustomerDto> _customers = new();
+    private string? _customerSearch;
+
+    // Orders Summary
+    private List<OrderDto> _reportOrders = new();
+    private OrderStatus? _reportOrderStatus;
+
+    // Suppliers list
+    private List<SupplierDto> _reportSuppliers = new();
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var result = await Mediator.Send(new GetOrdersQuery { PageSize = 20 });
-            if (result.Succeeded && result.Data != null)
-                _orders = result.Data.Items;
+            await Task.WhenAll(
+                LoadSupplierProducts(),
+                LoadCustomers(),
+                LoadReportOrders(),
+                LoadSuppliersData(),
+                LoadLookups()
+            );
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Error loading reports: {ex.Message}", Severity.Error);
         }
-        _loading = false;
     }
+
+    private async Task LoadLookups()
+    {
+        var supResult = await Mediator.Send(new GetSuppliersQuery());
+        if (supResult.Succeeded && supResult.Data != null)
+            _suppliers = supResult.Data;
+    }
+
+    private async Task LoadSupplierProducts()
+    {
+        _loadingProducts = true;
+        try
+        {
+            var result = await Mediator.Send(new GetProductsQuery
+            {
+                PageSize = 200,
+                SearchTerm = null
+            });
+            if (result.Succeeded && result.Data != null)
+            {
+                var all = result.Data.Items;
+                _supplierProducts = _reportSupplierId.HasValue
+                    ? all.Where(p => p.SupplierId == _reportSupplierId.Value).ToList()
+                    : all;
+            }
+        }
+        catch { }
+        _loadingProducts = false;
+    }
+
+    private async Task LoadCustomers()
+    {
+        _loadingCustomers = true;
+        try
+        {
+            var result = await Mediator.Send(new GetCustomersQuery { SearchTerm = _customerSearch, PageSize = 100 });
+            if (result.Succeeded && result.Data != null)
+                _customers = result.Data.Items;
+        }
+        catch { }
+        _loadingCustomers = false;
+    }
+
+    private async Task LoadReportOrders()
+    {
+        _loadingOrders = true;
+        try
+        {
+            var result = await Mediator.Send(new GetOrdersQuery { Status = _reportOrderStatus, PageSize = 100 });
+            if (result.Succeeded && result.Data != null)
+                _reportOrders = result.Data.Items;
+        }
+        catch { }
+        _loadingOrders = false;
+    }
+
+    private async Task LoadSuppliersData()
+    {
+        _loadingSuppliers = true;
+        try
+        {
+            var result = await Mediator.Send(new GetSuppliersQuery());
+            if (result.Succeeded && result.Data != null)
+                _reportSuppliers = result.Data;
+        }
+        catch { }
+        _loadingSuppliers = false;
+    }
+
+    private Color GetStatusColor(OrderStatus status) => status switch
+    {
+        OrderStatus.Delivered => Color.Success,
+        OrderStatus.Shipped => Color.Info,
+        OrderStatus.Confirmed => Color.Primary,
+        OrderStatus.Pending => Color.Warning,
+        OrderStatus.Cancelled => Color.Error,
+        _ => Color.Default
+    };
 }

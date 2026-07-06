@@ -92,13 +92,24 @@ internal class UpdateManufacturingOrderStatusCommandHandler : IRequestHandler<Up
                 finishedProduct.StockQuantity += order.Quantity;
                 finishedProduct.ModifiedAt = DateTime.UtcNow;
 
-                // Also update StockItem if one exists
+                // Also update StockItem (for warehouse tracking); create if missing
                 var finishedStockItem = await _context.StockItems
                     .FirstOrDefaultAsync(s => s.ProductId == order.FinishedProductId, ct);
                 if (finishedStockItem != null)
                 {
                     finishedStockItem.Quantity += order.Quantity;
                     finishedStockItem.ModifiedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    var whId = order.WarehouseId ?? await _context.Warehouses.Select(w => (Guid?)w.Id).FirstOrDefaultAsync(ct) ?? Guid.Empty;
+                    finishedStockItem = new StockManagement.Domain.Entities.Inventory.StockItem
+                    {
+                        ProductId = order.FinishedProductId,
+                        Quantity = order.Quantity,
+                        WarehouseId = whId
+                    };
+                    _context.StockItems.Add(finishedStockItem);
                 }
 
                 _context.ManufacturingTransactions.Add(new Domain.Entities.Manufacturing.ManufacturingTransaction

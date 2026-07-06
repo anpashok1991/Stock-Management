@@ -21,30 +21,27 @@ public class UpdateBOMCommand : IRequest<Result>
 internal class UpdateBOMCommandHandler : IRequestHandler<UpdateBOMCommand, Result>
 {
     private readonly IAppDbContext _context;
-    private readonly ITenantContext _tenant;
 
-    public UpdateBOMCommandHandler(IAppDbContext context, ITenantContext tenant)
+    public UpdateBOMCommandHandler(IAppDbContext context)
     {
         _context = context;
-        _tenant = tenant;
     }
 
     public async Task<Result> Handle(UpdateBOMCommand request, CancellationToken ct)
     {
-        // Rely on AppDbContext.CurrentTenantId and global query filters instead of explicit tenant matching
-
+        // Load BOM without items to avoid tracking conflicts on item deletion
         var bom = await _context.BillOfMaterials
-            .Include(b => b.Items)
             .FirstOrDefaultAsync(b => b.Id == request.Id, ct);
 
         if (bom == null)
             return Result.Failure("Bill of Materials not found");
 
-        var existingItems = await _context.BillOfMaterialItems
+        // Delete existing items
+        var oldItems = await _context.BillOfMaterialItems
             .Where(bi => bi.BillOfMaterialId == request.Id)
             .ToListAsync(ct);
 
-        _context.BillOfMaterialItems.RemoveRange(existingItems);
+        _context.BillOfMaterialItems.RemoveRange(oldItems);
 
         bom.Name = request.Name;
         bom.FinishedProductId = request.FinishedProductId;
@@ -56,8 +53,9 @@ internal class UpdateBOMCommandHandler : IRequestHandler<UpdateBOMCommand, Resul
 
         foreach (var item in request.Items)
         {
-            bom.Items.Add(new BillOfMaterialItem
+            _context.BillOfMaterialItems.Add(new BillOfMaterialItem
             {
+                BillOfMaterialId = bom.Id,
                 RawMaterialId = item.RawMaterialId,
                 QuantityRequired = item.QuantityRequired,
                 Unit = item.Unit,

@@ -59,6 +59,8 @@
         </MudTd>
         <MudTd DataLabel="Date">@context.CreatedAt.ToString("dd MMM yyyy")</MudTd>
         <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small" Color="Color.Default"
+                           OnClick="() => ViewOrder(context.Id)" Title="View Details" />
             @if (context.Status == OrderStatus.Pending)
             {
                 <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success"
@@ -200,7 +202,39 @@
     </DialogActions>
 </MudDialog>
 
-@code {
+<MudDialog @bind-IsVisible="_showViewDialog" MaxWidth="MaxWidth.Medium">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Order Details: @(_viewOrder?.OrderNumber)</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_viewOrder != null)
+        {
+            <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudText><strong>Order #:</strong> @_viewOrder.OrderNumber</MudText>
+                    <MudText><strong>Customer:</strong> @(string.IsNullOrEmpty(_viewOrder.CustomerName) ? "Walk-in" : _viewOrder.CustomerName)</MudText>
+                    <MudText><strong>Items:</strong> @_viewOrder.ItemCount</MudText>
+                    <MudText><strong>Date:</strong> @_viewOrder.CreatedAt.ToString("dd MMM yyyy hh:mm tt")</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudText><strong>Sub Total:</strong> ₹ @_viewOrder.SubTotal.ToString("N2")</MudText>
+                    <MudText><strong>Tax:</strong> ₹ @_viewOrder.TaxAmount.ToString("N2")</MudText>
+                    <MudText><strong>Discount:</strong> ₹ @_viewOrder.DiscountAmount.ToString("N2")</MudText>
+                    <MudText><strong>Grand Total:</strong> ₹ @_viewOrder.GrandTotal.ToString("N2")</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudText><strong>Payment:</strong> @_viewOrder.PaymentMode — @_viewOrder.PaymentStatus</MudText>
+                    <MudText><strong>Status:</strong> @_viewOrder.Status</MudText>
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showViewDialog = false">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+ @code {
     private List<OrderDto> _orders = new();
     private List<CustomerDto> _customers = new();
     private List<ProductDto> _products = new();
@@ -208,6 +242,8 @@
     private string? _search;
     private OrderStatus? _statusFilter;
     private bool _showNewDialog;
+    private bool _showViewDialog;
+    private OrderDto? _viewOrder;
 
     private CreateOrderCommand _newOrder = new();
     private List<OrderItemRequest> _orderItems = new();
@@ -283,6 +319,12 @@
         {
             Snackbar.Add($"Exception: {ex.Message}", Severity.Error);
         }
+    }
+
+    private void ViewOrder(Guid orderId)
+    {
+        _viewOrder = _orders.FirstOrDefault(o => o.Id == orderId);
+        _showViewDialog = true;
     }
 
     private async Task UpdateStatus(Guid orderId, OrderStatus status)
