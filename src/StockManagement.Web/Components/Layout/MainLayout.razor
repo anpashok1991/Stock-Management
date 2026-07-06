@@ -3,11 +3,16 @@
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using StockManagement.Domain.Entities
 @using StockManagement.Domain.Entities.Identity
+@using StockManagement.Infrastructure.Data
 @using StockManagement.Web.Services
 @using MudBlazor
 @inject AuthenticationStateProvider AuthState
 @inject UserManager<ApplicationUser> UserManager
+@inject AppDbContext DbContext
+@inject NavigationManager Nav
 @inject ThemeService ThemeService
 @inject TenantInitializer TenantInitializer
 @inject ISnackbar _snackbar
@@ -20,8 +25,16 @@
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" Title="Toggle sidebar" />
-        <MudSpacer />
-        <MudText Typo="Typo.h6">Stock Management ERP</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+            <MudIcon Icon="@Icons.Material.Filled.Store" Size="Size.Medium" Style="color:#FFD700;" />
+            <div>
+                <MudText Typo="Typo.h6" Style="color:#FFD700;font-weight:600;line-height:1.2;">@_shopName</MudText>
+                @if (!string.IsNullOrEmpty(_shopAddress))
+                {
+                    <MudText Typo="Typo.caption" Style="color:rgba(255,255,255,0.7);font-size:0.75rem;">@_shopAddress</MudText>
+                }
+            </div>
+        </MudStack>
         <MudSpacer />
         <MudIconButton Icon="@(ThemeService.IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                        Color="Color.Inherit" OnClick="ToggleTheme" Title="@(ThemeService.IsDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode")" />
@@ -102,10 +115,13 @@
     private bool _initialized;
     private string _displayName = "";
     private string _displayEmail = "";
+    private string _shopName = "Stock Management ERP";
+    private string _shopAddress = "";
 
     protected override async Task OnInitializedAsync()
     {
         ThemeService.OnChange += StateHasChanged;
+        Nav.LocationChanged += async (_, _) => await RefreshTenant();
         try
         {
             var authState = await AuthState.GetAuthenticationStateAsync();
@@ -120,6 +136,13 @@
                 _displayEmail = authState.User.Identity?.Name ?? "";
             }
 
+            var tenant = await DbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync();
+            if (tenant != null)
+            {
+                _shopName = tenant.Name ?? "Stock Management ERP";
+                _shopAddress = tenant.Address ?? "";
+            }
+
             await TenantInitializer.InitializeAsync();
         }
         catch
@@ -129,9 +152,25 @@
         _initialized = true;
     }
 
+    private async Task RefreshTenant()
+    {
+        try
+        {
+            var tenant = await DbContext.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync();
+            if (tenant != null)
+            {
+                _shopName = tenant.Name ?? "Stock Management ERP";
+                _shopAddress = tenant.Address ?? "";
+            }
+            StateHasChanged();
+        }
+        catch { }
+    }
+
     public void Dispose()
     {
         ThemeService.OnChange -= StateHasChanged;
+        Nav.LocationChanged -= async (_, _) => await RefreshTenant();
     }
 
 }
